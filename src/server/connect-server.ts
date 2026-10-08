@@ -217,6 +217,7 @@ export class ConnectServer {
         oauthFlow: this.options.oauthFlow,
         connections: this.options.connections,
         catalog: this.options.catalog,
+        publicOrigin: this.options.publicOrigin,
         actions: {
           run: async (input, policy) =>
             this.options.actions.run({

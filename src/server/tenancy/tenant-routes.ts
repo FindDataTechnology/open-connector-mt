@@ -51,6 +51,8 @@ export interface TenantRouteOptions {
   };
   /** The runtime's merged policy snapshot for the test-run. */
   policyOf(context: Context): Promise<ActionPolicySnapshot>;
+  /** Public origin for redirect_uri construction (OOMOL_CONNECT_ORIGIN); falls back to the request origin. */
+  publicOrigin?: string;
   logger?: { info(obj: unknown, msg: string): void; warn(obj: unknown, msg: string): void };
 }
 
@@ -132,7 +134,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
       "base64url",
     );
     const state = crypto.randomUUID();
-    const origin = new URL(context.req.url).origin;
+    // Behind TLS-terminating proxies context.req.url reads http; the deployed
+    // origin is authoritative for redirect_uri matching.
+    const origin = options.publicOrigin || new URL(context.req.url).origin;
     const redirectUri = `${origin}/api/tenant/oidc/callback`;
     const pending = b64urlJson({ verifier, state });
     const url = new URL(doc.authorization_endpoint);
