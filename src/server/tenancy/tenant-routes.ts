@@ -206,8 +206,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
       }),
     });
     if (!tokenResponse.ok) {
-      options.logger?.warn({ status: tokenResponse.status }, "tenant oidc code exchange failed");
-      return jsonError(context, 401, "tenant_oidc_exchange", "OIDC code exchange failed.");
+      const detail = (await tokenResponse.text().catch(() => "")).slice(0, 300);
+      options.logger?.warn({ status: tokenResponse.status, detail }, "tenant oidc code exchange failed");
+      return jsonError(context, 401, "tenant_oidc_exchange", `OIDC code exchange failed (${tokenResponse.status}): ${detail}`);
     }
     const tokens = (await tokenResponse.json()) as { id_token?: string };
     if (!tokens.id_token) return jsonError(context, 401, "tenant_oidc_exchange", "No ID token returned.");
