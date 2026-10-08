@@ -24,12 +24,12 @@
 
 ## 4. 租户路由（面板 API）
 
-- [ ] 4.1 新文件 `src/server/api/tenant-routes.ts`：`/api/tenant/*`（config 下发 / OIDC login-url + callback 代理 / session / logout / connections CRUD / OAuth 发起透传（connectionName 自动命名）/ PAT 管理 / action 试跑）。**[UP]** `connect-server.ts` 挂载（import + 一行）。验证：以测试 identity 走全流程的接口测试。
-- [ ] 4.2 OAuth 回调租户绑定：授权发起把 tenant_id 写入 oauth_states，回调落对应租户连接。验证：两租户并发发起同 provider OAuth，各自回调互不串扰。
+- [x] 4.1 新文件 `src/server/api/tenant-routes.ts`：`/api/tenant/*`（config 下发 / OIDC login-url + callback 代理 / session / logout / connections CRUD / OAuth 发起透传（connectionName 自动命名）/ PAT 管理 / action 试跑）。**[UP]** `connect-server.ts` 挂载（import + 一行）。验证：以测试 identity 走全流程的接口测试。
+- [x] 4.2 OAuth 回调租户绑定：授权发起把 tenant_id 写入 oauth_states，回调落对应租户连接。验证：两租户并发发起同 provider OAuth，各自回调互不串扰。
 
 ## 5. MCP 租户过滤
 
-- [ ] 5.1 **[UP]** `src/mcp.ts`（数行）+ `connect-server.ts` 挂载传参：`list_connections` 按租户过滤、`execute_action` 归属校验（越界=connection_not_found 同形）；目录三工具不动。验证：MCP 测试加双租户用例（各自 list/execute、越界探测同形、off 档不变）。
+- [x] 5.1 **[UP]** `src/mcp.ts`（数行）+ `connect-server.ts` 挂载传参：`list_connections` 按租户过滤、`execute_action` 归属校验（越界=connection_not_found 同形）；目录三工具不动。验证：MCP 测试加双租户用例（各自 list/execute、越界探测同形、off 档不变）。
 
 ## 6. Console（用户面板 + 双语）
 
