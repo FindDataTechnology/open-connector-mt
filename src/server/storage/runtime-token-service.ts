@@ -25,6 +25,9 @@ export interface RuntimeTokenRecord {
 export interface RuntimeTokenSummary {
   id: string;
   name: string;
+  /** open-connector-mt: absent = legacy runtime token. */
+  kind?: TokenKind;
+  tenantId?: string;
   allowedActions: string[];
   blockedActions: string[];
   allowedProxies: string[];
@@ -32,10 +35,6 @@ export interface RuntimeTokenSummary {
   allowedTriggers?: string[];
   createdAt: string;
   lastUsedAt?: string;
-  /** open-connector-mt: owning tenant (user_pat), null for service_pat, absent = legacy runtime token. */
-  tenantId?: string;
-  /** open-connector-mt: absent means the upstream "runtime" kind. */
-  kind?: TokenKind;
 }
 
 export interface RuntimeTokenCreation {
@@ -168,6 +167,8 @@ export function summarizeRuntimeToken(record: RuntimeTokenRecord): RuntimeTokenS
     allowedTriggers: record.allowedTriggers ?? [],
     createdAt: record.createdAt,
     lastUsedAt: record.lastUsedAt,
+    tenantId: record.tenantId,
+    kind: record.kind,
   };
 }
 

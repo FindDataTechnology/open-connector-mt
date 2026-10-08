@@ -9,6 +9,7 @@
  */
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { deleteCookie, setCookie } from "hono/cookie";
 
 import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
 import type { CatalogStore } from "../../catalog-store.ts";
@@ -135,12 +136,13 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     url.searchParams.set("state", state);
     url.searchParams.set("code_challenge", challenge);
     url.searchParams.set("code_challenge_method", "S256");
-    context.header(
-      "set-cookie",
-      `${oidcStateCookie}=${pending}; Path=/; Max-Age=${oidcPendingMaxAgeSeconds}; HttpOnly; SameSite=Lax${
-        origin.startsWith("https://") ? "; Secure" : ""
-      }`,
-    );
+    setCookie(context, oidcStateCookie, pending, {
+      httpOnly: true,
+      maxAge: oidcPendingMaxAgeSeconds,
+      sameSite: "Lax",
+      secure: origin.startsWith("https://"),
+      path: "/",
+    });
     return context.redirect(url.toString());
   });
 
@@ -192,7 +194,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
       displayName: verified.displayName,
     });
     await hooks.issueSession(context, identity.id);
-    context.header("set-cookie", `${oidcStateCookie}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`);
+    // deleteCookie appends a second Set-Cookie; context.header() would clobber
+    // the session cookie set above.
+    deleteCookie(context, oidcStateCookie, { httpOnly: true, sameSite: "Lax", path: "/" });
     return context.redirect("/");
   });
 

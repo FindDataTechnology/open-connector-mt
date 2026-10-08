@@ -33,9 +33,9 @@
 
 ## 6. Console（用户面板 + 双语）
 
-- [ ] 6.1 新文件 `web/src/i18n/*`（zh-CN.json/en.json + `t()`）；语言解析链 localStorage > LOCALE_DEFAULT > navigator > en。验证：单测覆盖解析链与缺失键回退。
-- [ ] 6.2 新文件 `web/src/user/*`：连接列表（状态徽标）/API key 新建/OAuth 发起/删除/改名/PAT 铸造撤销/Action 试跑页。验证：vitest web 组件测试 + 双语快照。
-- [ ] 6.3 **[UP]** router 与导航挂载 `/me` 路由段（各一行级触碰）；off 档不渲染入口。验证：`TENANCY` 两档下 console 渲染测试。
+- [x] 6.1 新文件 `web/src/i18n/*`（zh-CN.json/en.json + `t()`）；语言解析链 localStorage > LOCALE_DEFAULT > navigator > en。验证：单测覆盖解析链与缺失键回退。
+- [x] 6.2 新文件 `web/src/user/*`：连接列表（状态徽标）/API key 新建/OAuth 发起/删除/改名/PAT 铸造撤销/Action 试跑页。验证：vitest web 组件测试 + 双语快照。
+- [x] 6.3 **[UP]** router 与导航挂载 `/me` 路由段（各一行级触碰）；off 档不渲染入口。验证：`TENANCY` 两档下 console 渲染测试。
 
 ## 7. 端到端与收口
 
