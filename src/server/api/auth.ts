@@ -89,10 +89,11 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
     // tokens authenticate as upstream but carry no tenant, so in tenant mode
     // they are rejected below unless an admin token was presented.
     if (options.tenant) {
-      const adminOk = Boolean(
-        normalizeToken(options.adminToken) &&
-        matchesConfiguredToken(context, normalizeToken(options.adminToken) as string),
-      );
+      // hasRequestToken covers BOTH the bearer header and the admin session
+      // cookie (installed by an earlier /api/auth/session call). Checking only
+      // the bearer header here would reject the cookie-carrying requests the
+      // console makes after unlocking, i.e. every dashboard refresh.
+      const adminOk = await hasRequestToken(context, normalizeToken(options.adminToken) as string);
       let grant = adminOk ? undefined : readRuntimeGrant(context);
       if (!adminOk && !grant) {
         // A PAT bearer arrives here before the legacy token check runs; resolve
