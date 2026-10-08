@@ -5,7 +5,8 @@
  */
 import { useEffect, useState } from "react";
 
-import { tenantApi, type TenantConfig } from "./tenant-api";
+import { tenantApi } from "./tenant-api";
+import type { TenantConfig } from "./tenant-api";
 
 export function useTenantConfig(): TenantConfig | null | undefined {
   const [config, setConfig] = useState<TenantConfig | null | undefined>(undefined);

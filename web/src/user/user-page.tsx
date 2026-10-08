@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { tenantApi, type TenantConnection, type TenantPat, type TenantSession } from "./tenant-api";
+import { tenantApi } from "./tenant-api";
+import type { TenantConnection, TenantPat, TenantSession } from "./tenant-api";
 
 type LoadState = "loading" | "ready" | "error";
 

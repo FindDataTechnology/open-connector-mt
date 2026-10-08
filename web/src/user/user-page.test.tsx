@@ -22,7 +22,6 @@ vi.mock("../api", () => ({
 }));
 
 import { apiGet } from "../api";
-import { UserPage } from "./user-page";
 
 const mockedGet = vi.mocked(apiGet);
 

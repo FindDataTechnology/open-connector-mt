@@ -1,7 +1,7 @@
 import type { Context } from "hono";
-import type { TenantPrincipal } from "./tenant-auth.ts";
 
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { Hono } from "hono";
@@ -11,7 +11,8 @@ import { TenantStore } from "../storage/tenant-store.ts";
 import { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import { SqliteRuntimeDatabase } from "../storage/sqlite/runtime-store.ts";
 import { createLocalAuthMiddleware } from "../api/auth.ts";
-import { createTenantAuthHooks, actorHeaderName, type TenantAuthHooks } from "./tenant-auth.ts";
+import { createTenantAuthHooks, actorHeaderName } from "./tenant-auth.ts";
+import type { TenantAuthHooks } from "./tenant-auth.ts";
 import { currentStoreTenant } from "./request-context.ts";
 
 async function withJwksServer(): Promise<{

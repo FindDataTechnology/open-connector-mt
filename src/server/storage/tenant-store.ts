@@ -11,7 +11,6 @@ import { randomUUID } from "node:crypto";
 import { BOOTSTRAP_TENANT_ID } from "../tenancy/constants.ts";
 import type { RequestTransaction } from "./connection-request-store.ts";
 import type { RuntimeRow } from "./runtime-sql.ts";
-import type { TokenKind } from "./runtime-token-service.ts";
 
 import { readString } from "./runtime-sql.ts";
 

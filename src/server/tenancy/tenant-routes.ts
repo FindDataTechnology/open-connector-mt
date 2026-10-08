@@ -19,8 +19,10 @@ import { jsonError } from "../api/http-utils.ts";
 import { readTenantPrincipal } from "../api/auth.ts";
 import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import type { ITenantStore } from "../storage/tenant-store.ts";
-import { PLATFORM_TENANT_ID, type TenancyConfig } from "./constants.ts";
-import { readSessionCookieName, type TenantAuthHooks } from "./tenant-auth.ts";
+import { PLATFORM_TENANT_ID } from "./constants.ts";
+import type { TenancyConfig } from "./constants.ts";
+import { readSessionCookieName } from "./tenant-auth.ts";
+import type { TenantAuthHooks } from "./tenant-auth.ts";
 import { currentStoreTenant, runWithTenant } from "./request-context.ts";
 
 const oidcStateCookie = "oomol_connect_oidc_pending";
