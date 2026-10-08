@@ -2,6 +2,7 @@ import type { IConnectionStore, StoredConnection, StoredLocalConnection } from "
 import type { ResolvedCredential } from "../../core/types.ts";
 import type { ISecretCodec } from "../secrets/secret-codec-core.ts";
 import { BOOTSTRAP_TENANT_ID } from "../tenancy/constants.ts";
+import { currentStoreTenant } from "../tenancy/request-context.ts";
 import type { RequestTransaction } from "./connection-request-store.ts";
 import type { RuntimeRow } from "./runtime-sql.ts";
 
@@ -35,7 +36,7 @@ export class SqlConnectionStore implements IConnectionStore {
     };
   }
 
-  async get(service: string, connectionName: string, tenantId: string = BOOTSTRAP_TENANT_ID): Promise<StoredConnection | undefined> {
+  async get(service: string, connectionName: string, tenantId: string = currentStoreTenant()): Promise<StoredConnection | undefined> {
     const [[row]] = await this.transaction([
       {
         sql: "select * from connections where service = ? and connection_name = ? and tenant_id = ?",
@@ -45,7 +46,7 @@ export class SqlConnectionStore implements IConnectionStore {
     return row ? this.read(row) : undefined;
   }
 
-  async list(tenantId: string = BOOTSTRAP_TENANT_ID): Promise<StoredConnection[]> {
+  async list(tenantId: string = currentStoreTenant()): Promise<StoredConnection[]> {
     const [rows] = await this.transaction([
       { sql: "select * from connections where tenant_id = ? order by service, connection_name", values: [tenantId] },
     ]);
@@ -56,7 +57,7 @@ export class SqlConnectionStore implements IConnectionStore {
     service: string,
     connectionName: string,
     credential: ResolvedCredential,
-    tenantId: string = BOOTSTRAP_TENANT_ID,
+    tenantId: string = currentStoreTenant(),
   ): Promise<StoredLocalConnection> {
     const value = await this.codec.encode(JSON.stringify(credential));
     const [, , [row]] = await this.transaction([
@@ -98,7 +99,7 @@ export class SqlConnectionStore implements IConnectionStore {
 
   async updateCredential(input: StoredLocalConnection, refresh = false): Promise<boolean> {
     const value = await this.codec.encode(JSON.stringify(input.credential));
-    const tenantId = input.tenantId || BOOTSTRAP_TENANT_ID;
+    const tenantId = input.tenantId || currentStoreTenant();
     const [, [row]] = await this.transaction([
       { sql: "update connections set revision = revision where id = ?", values: [input.id] },
       {
@@ -128,7 +129,7 @@ export class SqlConnectionStore implements IConnectionStore {
     return row !== undefined;
   }
 
-  async delete(service: string, connectionName: string, tenantId: string = BOOTSTRAP_TENANT_ID): Promise<void> {
+  async delete(service: string, connectionName: string, tenantId: string = currentStoreTenant()): Promise<void> {
     const [, , , [remaining]] = await this.transaction([
       {
         sql: "update connections set revision = revision where service = ? and connection_name = ? and tenant_id = ?",

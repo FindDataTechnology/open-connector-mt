@@ -4,6 +4,7 @@ import type { RuntimeLogger, TransitFileUpload } from "../core/types.ts";
 import type { IProviderLoader } from "../providers/provider-loader.ts";
 import type { RuntimeJwtVerifier } from "./api/runtime-jwt.ts";
 import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
+import type { TenantStore } from "./storage/tenant-store.ts";
 import type { ITransitFileService } from "./files/transit-file-store.ts";
 import type { ISecretCodec } from "./secrets/secret-codec-core.ts";
 import type { RuntimeDatabase } from "./storage/runtime-database.ts";
@@ -41,6 +42,8 @@ export interface ConnectAppOptions {
   verifyRuntimeJwt?: RuntimeJwtVerifier;
   /** open-connector-mt: tenant auth hooks (TENANCY=oidc only). */
   tenantAuth?: TenantAuthHooks;
+  /** open-connector-mt: tenant registry for the console routes. */
+  tenantStore?: TenantStore;
   actionPolicy?: ActionPolicyService;
   registerStaticRoutes?: (app: Hono) => void;
   logger?: RuntimeLogger;
@@ -121,6 +124,16 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
     deploymentPolicy: options.actionPolicy ?? new ExecutionPolicyService(),
     logger: options.logger,
   });
+  const oauthFlow = new OAuthFlowService({
+    clientConfigs: oauthClientConfigs,
+    connections,
+    providerLoader: options.providerLoader,
+    states: options.runtimeDatabase.oauthStateStore,
+    requests: options.runtimeDatabase.connectionRequestStore,
+    secretCodec: options.secretCodec,
+    isCustomClientConfigAllowed,
+    saasOAuth,
+  });
   return {
     triggerMaintenance,
     saasCleanup: new SaasCleanupService({
@@ -135,16 +148,9 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
       providerLoader: options.providerLoader,
       connections,
       oauthClientConfigs,
-      oauthFlow: new OAuthFlowService({
-        clientConfigs: oauthClientConfigs,
-        connections,
-        providerLoader: options.providerLoader,
-        states: options.runtimeDatabase.oauthStateStore,
-        requests: options.runtimeDatabase.connectionRequestStore,
-        secretCodec: options.secretCodec,
-        isCustomClientConfigAllowed,
-        saasOAuth,
-      }),
+      tenantAuth: options.tenantAuth,
+      tenantStore: options.runtimeDatabase.tenantStore,
+      oauthFlow,
       actions,
       triggers,
       triggerMaintenance,

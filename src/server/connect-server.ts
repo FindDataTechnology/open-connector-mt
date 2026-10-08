@@ -47,6 +47,9 @@ import {
 import { ActionRunner } from "./actions/action-runner.ts";
 import { renderActionMarkdown } from "./api/action-markdown.ts";
 import { clearLocalAuthCookie, createLocalAuthMiddleware, readLocalAuthSession, readRuntimeGrant } from "./api/auth.ts";
+import { registerTenantRoutes } from "./tenancy/tenant-routes.ts";
+import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
+import type { TenantStore } from "./storage/tenant-store.ts";
 import { getResponseCachePolicy } from "./api/cache-policy.ts";
 import { createConnectionRoutes } from "./api/connection-routes.ts";
 import { HttpRequestError, internalError, jsonError, notFound, readJsonBody } from "./api/http-utils.ts";
@@ -137,6 +140,9 @@ export interface IConnectServerOptions {
   transitFiles: ITransitFileService;
   uploadTransitFile?: (request: Request) => Promise<TransitFileUpload>;
   auth?: LocalAuthOptions;
+  /** open-connector-mt: tenant hooks + registry; console routes mount only when hooks exist. */
+  tenantAuth?: TenantAuthHooks;
+  tenantStore?: TenantStore;
   actionPolicy?: ActionPolicyService;
   runtimePolicyStore: IRuntimePolicyStore;
   actionSearch?: ActionSearchIndexProvider;
@@ -200,6 +206,28 @@ export class ConnectServer {
       app.use("/api/*", compress());
     }
     app.use("*", createLocalAuthMiddleware(auth));
+    // open-connector-mt: tenant console routes (self-authenticating under /api/tenant/*).
+    if (this.options.tenantAuth && this.options.tenantStore) {
+      const hooks = this.options.tenantAuth;
+      registerTenantRoutes(app, {
+        hooks,
+        config: hooks.config,
+        tenants: this.options.tenantStore,
+        runtimeTokens: this.options.runtimeTokens,
+        oauthFlow: this.options.oauthFlow,
+        connections: this.options.connections,
+        catalog: this.options.catalog,
+        actions: {
+          run: async (input, policy) =>
+            this.options.actions.run({
+              ...input,
+              policy,
+            }),
+        },
+        policyOf: (requestContext) => this.getPolicySnapshot(requestContext),
+        logger: this.options.logger,
+      });
+    }
     if (this.options.marketplace) {
       app.get("/api/marketplace", (context) => context.json(this.options.marketplace!.getState()));
       app.put("/api/marketplace", (context) => this.configureMarketplace(context));

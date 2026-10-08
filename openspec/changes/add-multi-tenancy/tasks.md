@@ -17,10 +17,10 @@
 
 ## 3. 认证层（tenant-auth + PAT + OBO）
 
-- [ ] 3.1 新文件 `src/server/api/tenant-auth.ts`：`TENANCY` 开关解析、OIDC 验签（jose + JWKS 缓存，issuer/aud/exp 校验）、identity 首见登记、`TenantPrincipal` 产出；`TENANCY=oidc` 而 OIDC 未配置时启动 fail-fast。验证：新测试文件覆盖验签通过/过期/issuer 不符/audience 不符/首见建租户/复用/停用拒绝。
-- [ ] 3.2 **[UP]** `src/server/api/auth.ts` + `src/server/connect-server.ts`（仅 wiring）：中间件分支——off 走原路径原样；oidc 先 tenant-auth 再原 scope 判定；admin token 注入跨租户 principal。验证：off 档既有 auth 测试全绿不动；MT 档新增路径测试。
-- [ ] 3.3 PAT：租户路由铸造/撤销 user_pat（kind 落库、SHA-256、明文一次性返回、`oct_` 前缀）；撤销即 401。验证：铸造→调用→撤销→401 的接口级测试。
-- [ ] 3.4 OBO：service_pat + `x-oo-connector-actor-sub`；`SERVICE_OBO` 三档判定（off 403 / allow-all 放行 / consent 查表）；actor 未登记或停用 403；user_pat 带头忽略；runs 落 tenant_id + service/actor 审计。验证：三档 × 两种令牌的矩阵测试。
+- [x] 3.1 新文件 `src/server/api/tenant-auth.ts`：`TENANCY` 开关解析、OIDC 验签（jose + JWKS 缓存，issuer/aud/exp 校验）、identity 首见登记、`TenantPrincipal` 产出；`TENANCY=oidc` 而 OIDC 未配置时启动 fail-fast。验证：新测试文件覆盖验签通过/过期/issuer 不符/audience 不符/首见建租户/复用/停用拒绝。
+- [x] 3.2 **[UP]** `src/server/api/auth.ts` + `src/server/connect-server.ts`（仅 wiring）：中间件分支——off 走原路径原样；oidc 先 tenant-auth 再原 scope 判定；admin token 注入跨租户 principal。验证：off 档既有 auth 测试全绿不动；MT 档新增路径测试。
+- [x] 3.3 PAT：租户路由铸造/撤销 user_pat（kind 落库、SHA-256、明文一次性返回、`oct_` 前缀）；撤销即 401。验证：铸造→调用→撤销→401 的接口级测试。
+- [x] 3.4 OBO：service_pat + `x-oo-connector-actor-sub`；`SERVICE_OBO` 三档判定（off 403 / allow-all 放行 / consent 查表）；actor 未登记或停用 403；user_pat 带头忽略；runs 落 tenant_id + service/actor 审计。验证：三档 × 两种令牌的矩阵测试。
 
 ## 4. 租户路由（面板 API）
 

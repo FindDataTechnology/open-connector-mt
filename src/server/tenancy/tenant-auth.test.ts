@@ -12,6 +12,7 @@ import { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import { SqliteRuntimeDatabase } from "../storage/sqlite/runtime-store.ts";
 import { createLocalAuthMiddleware } from "../api/auth.ts";
 import { createTenantAuthHooks, actorHeaderName, type TenantAuthHooks } from "./tenant-auth.ts";
+import { currentStoreTenant } from "./request-context.ts";
 
 async function withJwksServer(): Promise<{
   jwksUri: string;
@@ -308,3 +309,50 @@ describe("local auth middleware with tenant hooks", () => {
     }
   });
 });
+
+describe("request-context wiring", () => {
+  it("scopes store defaults to the authenticated tenant through the middleware chain", async () => {
+    const server = await withJwksServer();
+    const database = new SqliteRuntimeDatabase(":memory:");
+    const tenants = database.tenantStore;
+    const tokens = new RuntimeTokenService(database.runtimeTokenStore);
+    const hooks = await createTenantAuthHooks({
+      config: { mode: "oidc", jwksUri: server.jwksUri, issuer: server.issuer, audience: server.audience, serviceObo: "off" },
+      tenantStore: tenants,
+      sessionKey: { encryptionKey: "k" },
+    });
+    const seen: { list: string[]; ctxTenant: string }[] = [];
+    const app = new Hono();
+    app.use("*", createLocalAuthMiddleware({ tenant: hooks, resolveRuntimeToken: (t) => tokens.resolveToken(t) }));
+    app.get("/v1/probe", async (c) => {
+      const rows = await database.connectionStore.list(); // context default in effect
+      seen.push({ list: rows.map((r) => r.tenantId ?? ""), ctxTenant: currentStoreTenant() });
+      return c.json({ count: rows.length });
+    });
+
+    const a = await tenants.upsertIdentity({ issuer: server.issuer, subject: "wire-a" });
+    const b = await tenants.upsertIdentity({ issuer: server.issuer, subject: "wire-b" });
+    const policy = { allowedActions: [], blockedActions: [], allowedProxies: [], allowedConnections: [] };
+    await database.connectionStore.set("github", "one", credFor("a"), a.identity.tenantId);
+    await database.connectionStore.set("github", "two", credFor("b"), b.identity.tenantId);
+
+    const patA = await tokens.createToken("a", policy, { kind: "user_pat", tenantId: a.identity.tenantId });
+    const res = await app.request("/v1/probe", { headers: { authorization: `Bearer ${patA.token}` } });
+    expect(res.status).toBe(200);
+    expect(seen[0].ctxTenant).toBe(a.identity.tenantId);
+    expect(seen[0].list).toEqual([a.identity.tenantId]); // only tenant A's row
+
+    await server.close();
+    database.close();
+  });
+});
+
+function credFor(tag: string) {
+  return {
+    authType: "api_key" as const,
+    apiKey: `key-${tag}`,
+    values: { apiKey: `key-${tag}` },
+    profile: { accountId: tag, displayName: tag, grantedScopes: [] },
+    metadata: { providerAccountVerified: false },
+  };
+}

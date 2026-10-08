@@ -11,6 +11,7 @@ import { ConnectionError } from "../../connection-service.ts";
 import { executeAction as executeProviderAction } from "../../core/execution.ts";
 import { SaasError } from "../../saas/saas-client.ts";
 import { safeRunLogError, summarizeForRunLog } from "./run-log-summary.ts";
+import { currentTenantAudit } from "../tenancy/request-context.ts";
 
 export interface ActionRunnerOptions {
   catalog: CatalogStore;
@@ -192,6 +193,9 @@ export class ActionRunner {
     const completedAtMs = Date.now();
     const durationMs = completedAtMs - startedAtMs;
     const auditError = safeRunLogError(result.error);
+    // open-connector-mt: stamp the run with the request's tenant context
+    // (actor tenant under OBO) and attribute service-PAT runs to that token.
+    const tenantAudit = currentTenantAudit();
     const runLog: RunLog = {
       id: executionId,
       remoteExecutionId,
@@ -204,10 +208,11 @@ export class ActionRunner {
       ok: result.ok,
       connectionId: connection?.summary?.id,
       connectionProfile: connection?.summary?.profile,
-      runtimeTokenId: input.runtimeTokenId,
+      runtimeTokenId: input.runtimeTokenId ?? tenantAudit?.serviceTokenId,
       policy,
       inputSummary: summarizeForRunLog(input.input),
       outputSummary: result.ok ? summarizeForRunLog(result.output) : undefined,
+      tenantId: tenantAudit?.tenantId,
       ...auditError,
     };
 

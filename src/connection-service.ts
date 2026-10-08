@@ -434,10 +434,12 @@ export class ConnectionService {
     credential: Extract<ResolvedCredential, { authType: "oauth2" }>,
     connectionNameInput?: string,
     signal?: AbortSignal,
+    /** open-connector-mt: explicit tenant from the OAuth state row (context default otherwise). */
+    tenantId?: string,
   ): Promise<ConnectionSummary> {
     const storedCredential = await this.prepareOAuthCredential(service, credential, signal);
     const connectionName = normalizeConnectionName(connectionNameInput);
-    const stored = await this.store.set(service, connectionName, storedCredential);
+    const stored = await this.store.set(service, connectionName, storedCredential, tenantId);
     return this.createStoredConnectionSummary(
       this.getAvailableProvider(service),
       stored.id,

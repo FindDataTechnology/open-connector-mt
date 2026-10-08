@@ -33,6 +33,8 @@ export interface OAuthAuthorizationStartInput {
   connectionName?: string;
   clientConfig?: OAuthClientConfigInput;
   authorizationOptionIds?: string[];
+  /** open-connector-mt: tenant the resulting connection belongs to (bootstrap when absent). */
+  tenantId?: string;
 }
 
 export interface OAuthAuthorizationCompleteInput {
@@ -230,6 +232,7 @@ export class OAuthFlowService {
       authorizationScopes: auth.authorizationOptions ? authorizationScopes : undefined,
       redirectUri,
       clientConfig: input.clientConfig ? config : undefined,
+      tenantId: input.tenantId,
     };
 
     const authorizationUrl = new URL(this.clientConfigs.resolveEndpointUrl(service, auth.authorizationUrl, config));
@@ -370,6 +373,7 @@ export class OAuthFlowService {
           oauthCredential,
           pending.connectionName,
           input.signal,
+          pending.tenantId,
         );
       }
       return {

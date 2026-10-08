@@ -105,8 +105,20 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
       const principal = await options.tenant.resolve(context, adminOk, grant);
       if (principal) {
         tenantPrincipals.set(context.req.raw, principal);
-        await next();
-        return;
+        if (principal.kind === "admin") {
+          await next();
+          return;
+        }
+        // Every downstream store call defaults to the (actor) tenant.
+        const { runWithTenant } = await import("../tenancy/request-context.ts");
+        return runWithTenant(
+          {
+            tenantId: principal.actorTenantId ?? principal.tenantId,
+            identityId: principal.identityId,
+            serviceTokenId: principal.serviceTokenId,
+          },
+          next,
+        );
       }
       if (!adminOk) {
         return jsonError(context, 401, "unauthorized", "Tenant authentication required (OIDC session or PAT).");
