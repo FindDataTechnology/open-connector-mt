@@ -4,8 +4,8 @@
 
 ## 1. 仓库与基线
 
-- [ ] 1.1 GitHub 建可见 fork：`gh repo fork oomol-lab/open-connector --org FindDataTechnology --clone=false` 后 rename 为 `open-connector-mt`；本地仓添加 remotes（`origin`=fork、`upstream`=oomol-lab），确认 HEAD 停在 v1.8.0（cdd4b59）。验证：`git remote -v` + `git describe --tags`。
-- [ ] 1.2 基线绿：`npm ci && npm run typecheck && npm test`（Node ≥22.18）全绿留档，作为 fork 的合并基线。验证：本地跑通，输出存 `openspec/changes/add-multi-tenancy/` 外的会话记录。
+- [x] 1.1 GitHub 建可见 fork：`gh repo fork oomol-lab/open-connector --org FindDataTechnology --clone=false` 后 rename 为 `open-connector-mt`；本地仓添加 remotes（`origin`=fork、`upstream`=oomol-lab），确认 HEAD 停在 v1.8.0（cdd4b59）。验证：`git remote -v` + `git describe --tags`。
+- [x] 1.2 基线绿：`npm ci && npm run typecheck && npm test`（Node ≥22.18）全绿留档，作为 fork 的合并基线。验证：本地跑通，输出存 `openspec/changes/add-multi-tenancy/` 外的会话记录。
 
 ## 2. 数据层（migration 0018 + tenant-store）
 

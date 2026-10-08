@@ -2,6 +2,8 @@ import type { AssetsBinding, D1DatabaseBinding, KVNamespaceBinding, R2BucketBind
 
 export interface CloudflareEnv {
   DB: D1DatabaseBinding;
+  /** open-connector-mt: set to "oidc" on Node runtimes; Workers (D1) rejects it at startup. */
+  TENANCY?: string;
   TRANSIT_FILES: R2BucketBinding | KVNamespaceBinding;
   TRANSIT_FILES_BACKEND?: "r2" | "kv"; // New: used to distinguish backend type at runtime
   ASSETS?: AssetsBinding;

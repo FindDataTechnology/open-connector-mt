@@ -36,6 +36,7 @@ import {
 } from "../runtime-sql.ts";
 import { DEFAULT_RUN_LIMIT } from "../runtime-store.ts";
 import { SaasProjectStore } from "../saas-project-store.ts";
+import { TenantStore } from "../tenant-store.ts";
 import { SqlTriggerStore } from "../trigger-store.ts";
 
 type SecretJsonTable = "oauth_client_configs";
@@ -57,6 +58,7 @@ export class D1RuntimeDatabase implements RuntimeDatabase {
   readonly runLogStore: D1RunLogStore;
   readonly idempotencyStore: D1IdempotencyStore;
   readonly marketplaceStore: IMarketplaceStore;
+  readonly tenantStore: TenantStore;
 
   constructor(database: D1DatabaseBinding, options: D1RuntimeDatabaseOptions = {}) {
     const secretCodec = options.secretCodec ?? new PlainTextSecretCodec();
@@ -75,6 +77,7 @@ export class D1RuntimeDatabase implements RuntimeDatabase {
     this.runLogStore = new D1RunLogStore(database, options.runLimit ?? DEFAULT_RUN_LIMIT);
     this.idempotencyStore = new D1IdempotencyStore(database, secretCodec);
     this.marketplaceStore = new D1MarketplaceStore(database);
+    this.tenantStore = new TenantStore(transaction);
   }
 }
 
@@ -182,12 +185,12 @@ export class D1OAuthStateStore implements IOAuthStateStore {
     await this.database
       .prepare(
         `
-        insert into oauth_states (state, value, created_at)
-        values (?, ?, ?)
+        insert into oauth_states (state, value, created_at, tenant_id)
+        values (?, ?, ?, ?)
         on conflict(state) do update set value = excluded.value, created_at = excluded.created_at
       `,
       )
-      .bind(state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt)
+      .bind(state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt, state.tenantId ?? "local-admin")
       .run();
   }
 
@@ -216,7 +219,7 @@ export class D1RuntimeTokenStore implements IRuntimeTokenStore {
         insert into runtime_tokens (
           ${runtimeTokenColumns}
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
       .bind(
@@ -230,6 +233,8 @@ export class D1RuntimeTokenStore implements IRuntimeTokenStore {
         JSON.stringify(record.allowedTriggers ?? []),
         record.createdAt,
         record.lastUsedAt ?? null,
+        record.tenantId ?? null,
+        record.kind ?? "runtime",
       )
       .run();
   }
@@ -406,8 +411,8 @@ export class D1RunLogStore implements IRunLogStore {
     await this.database
       .prepare(
         `
-        insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value)
-        values (?, ?, ?, ?, ?, ?, ?, ?)
+        insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value, tenant_id)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
         on conflict(id) do update set
           service = excluded.service,
           action_id = excluded.action_id,
@@ -415,7 +420,8 @@ export class D1RunLogStore implements IRunLogStore {
           started_at = excluded.started_at,
           completed_at = excluded.completed_at,
           ok = excluded.ok,
-          value = excluded.value
+          value = excluded.value,
+          tenant_id = excluded.tenant_id
       `,
       )
       .bind(
@@ -427,6 +433,7 @@ export class D1RunLogStore implements IRunLogStore {
         run.completedAt,
         run.ok ? 1 : 0,
         JSON.stringify(run),
+        run.tenantId ?? null,
       )
       .run();
 

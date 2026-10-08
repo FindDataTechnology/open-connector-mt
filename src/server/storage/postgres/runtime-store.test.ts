@@ -12,6 +12,7 @@ import { defaultMigrationSource } from "../migration-source.ts";
 import { createNodeRuntimeDatabase, migratePostgresRuntimeDatabase } from "../node-runtime-database.ts";
 import { RuntimeTokenService } from "../runtime-token-service.ts";
 import { saasProjectStoreTests, saasMaintenanceTests } from "../saas-project-store.cases.ts";
+import { tenantStoreTests } from "../tenant-store.cases.ts";
 import { triggerStoreTests } from "../trigger-store.cases.ts";
 import { assertPostgresSchemaReady, migratePostgresDatabase } from "./migrations.ts";
 import { PostgresRuntimeDatabase } from "./runtime-store.ts";
@@ -104,6 +105,7 @@ describe("PostgreSQL migrations with PGlite", () => {
           { name: "0015_saas_cleanup_runtime.sql" },
           { name: "0016_trigger_policy.sql" },
           { name: "0017_trigger_subscriptions.sql" },
+          { name: "0018_multi_tenancy.sql" },
         ],
       });
 
@@ -167,6 +169,7 @@ describe("PostgreSQL migrations with a custom migration source", () => {
           { name: "0015_saas_cleanup_runtime.sql" },
           { name: "0016_trigger_policy.sql" },
           { name: "0017_trigger_subscriptions.sql" },
+          { name: "0018_multi_tenancy.sql" },
           { name: "9998_custom.sql" },
         ],
       });
@@ -254,6 +257,7 @@ describe("PostgresRuntimeDatabase with PGlite", () => {
 
   connectionRequestStoreTests(() => database);
   triggerStoreTests(() => database);
+  tenantStoreTests(() => database);
 
   it("persists connections and OAuth data across database instances", async () => {
     const connection = await database.connectionStore.set("github", "default", githubCredential("github-token"));

@@ -59,6 +59,8 @@ export interface OAuthAuthorizationState {
    */
   redirectUri?: string;
   clientConfig?: OAuthClientConfig;
+  /** open-connector-mt: tenant the authorization belongs to (bootstrap when absent). */
+  tenantId?: string;
 }
 
 export interface OAuthFlowServiceOptions {

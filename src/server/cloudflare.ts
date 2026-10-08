@@ -32,6 +32,17 @@ interface CloudflareExecutionContext {
   passThroughOnException(): void;
 }
 
+/**
+ * open-connector-mt: multi-tenancy is a Node-runtime feature. The Workers
+ * deployment (D1 backend) rejects it at startup rather than pretending to
+ * support it — an honest boundary, not a missing feature.
+ */
+function assertTenancyCompatible(env: CloudflareEnv): void {
+  if (env.TENANCY === "oidc") {
+    throw new Error("TENANCY=oidc requires the Node runtime (SQLite/PostgreSQL); Cloudflare Workers (D1) is not supported in multi-tenant mode.");
+  }
+}
+
 const catalogCache = new PromiseCache<CatalogStore>();
 const secretCodecCache = new PromiseCache<ISecretCodec>();
 const appCache = new PromiseCache<ConnectApp>();
@@ -40,6 +51,7 @@ export default {
   async scheduled(_event: unknown, env: CloudflareEnv, ctx: CloudflareExecutionContext): Promise<void> {
     setPrivateNetworkAccessAllowed(parsePrivateNetworkAccessFlag(env.OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK));
     setEgressTrustedHosts(parseEgressTrustedHosts(env.OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS));
+    assertTenancyCompatible(env);
     const database = new D1RuntimeDatabase(env.DB, {
       secretCodec: await createSecretCodec(env.OOMOL_CONNECT_ENCRYPTION_KEY),
     });
@@ -61,6 +73,7 @@ export default {
   async fetch(request: Request, env: CloudflareEnv, _ctx: CloudflareExecutionContext): Promise<Response> {
     setPrivateNetworkAccessAllowed(parsePrivateNetworkAccessFlag(env.OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK));
     setEgressTrustedHosts(parseEgressTrustedHosts(env.OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS));
+    assertTenancyCompatible(env);
     const publicOrigin = resolvePublicOrigin(request, env);
     const { app } = await appCache.get(createCacheKey(env, publicOrigin), () => createCloudflareApp(env, publicOrigin));
     const response = await app.fetch(request, env);

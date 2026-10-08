@@ -3,6 +3,8 @@ import type { RuntimeLogger } from "../../core/types.ts";
 
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+export type TokenKind = "runtime" | "user_pat" | "service_pat";
+
 export interface RuntimeTokenRecord {
   id: string;
   name: string;
@@ -14,6 +16,10 @@ export interface RuntimeTokenRecord {
   allowedTriggers?: string[];
   createdAt: string;
   lastUsedAt?: string;
+  /** open-connector-mt: owning tenant (user_pat), null for service_pat, absent = legacy runtime token. */
+  tenantId?: string;
+  /** open-connector-mt: absent means the upstream "runtime" kind. */
+  kind?: TokenKind;
 }
 
 export interface RuntimeTokenSummary {
@@ -26,6 +32,10 @@ export interface RuntimeTokenSummary {
   allowedTriggers?: string[];
   createdAt: string;
   lastUsedAt?: string;
+  /** open-connector-mt: owning tenant (user_pat), null for service_pat, absent = legacy runtime token. */
+  tenantId?: string;
+  /** open-connector-mt: absent means the upstream "runtime" kind. */
+  kind?: TokenKind;
 }
 
 export interface RuntimeTokenCreation {
@@ -65,6 +75,8 @@ export class RuntimeTokenService {
       allowedProxies: [],
       allowedConnections: [],
     },
+    /** open-connector-mt: PAT creation passes { kind, tenantId } here. */
+    identity?: { kind?: TokenKind; tenantId?: string },
   ): Promise<RuntimeTokenCreation> {
     const token = `${tokenPrefix}${randomBytes(32).toString("base64url")}`;
     const now = new Date().toISOString();
@@ -78,6 +90,7 @@ export class RuntimeTokenService {
       allowedConnections: policy.allowedConnections ?? [],
       allowedTriggers: policy.allowedTriggers ?? [],
       createdAt: now,
+      ...(identity ?? {}),
     };
     await this.store.add(record);
     return { token, record };

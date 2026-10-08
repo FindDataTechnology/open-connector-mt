@@ -26,6 +26,8 @@ export interface RunLog {
   outputSummary?: unknown;
   errorCode?: string;
   errorMessage?: string;
+  /** open-connector-mt: tenant the run executed for (actor tenant under OBO). */
+  tenantId?: string;
 }
 
 export interface RunLogListInput {
@@ -35,6 +37,8 @@ export interface RunLogListInput {
   actionId?: string;
   caller?: RunLogCaller;
   ok?: boolean;
+  /** open-connector-mt: restrict the page to one tenant's runs. */
+  tenantId?: string;
 }
 
 export interface RunLogPage {

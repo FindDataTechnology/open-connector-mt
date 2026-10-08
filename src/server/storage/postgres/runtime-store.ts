@@ -40,6 +40,7 @@ import {
 } from "../runtime-sql.ts";
 import { DEFAULT_RUN_LIMIT } from "../runtime-store.ts";
 import { SaasProjectStore } from "../saas-project-store.ts";
+import { TenantStore } from "../tenant-store.ts";
 import { SqlTriggerStore } from "../trigger-store.ts";
 import { assertPostgresSchemaReady } from "./migrations.ts";
 
@@ -64,6 +65,7 @@ export class PostgresRuntimeDatabase implements RuntimeDatabase {
   readonly runLogStore: IRunLogStore;
   readonly idempotencyStore: IIdempotencyStore;
   readonly marketplaceStore: IMarketplaceStore;
+  readonly tenantStore: TenantStore;
 
   private readonly pool: Pool;
   private readonly secretCodec: ISecretCodec;
@@ -100,6 +102,7 @@ export class PostgresRuntimeDatabase implements RuntimeDatabase {
     this.runLogStore = new PostgresRunLogStore(pool, options.runLimit ?? DEFAULT_RUN_LIMIT);
     this.idempotencyStore = new PostgresIdempotencyStore(pool, this.secretCodec);
     this.marketplaceStore = new PostgresMarketplaceStore(pool);
+    this.tenantStore = new TenantStore(transaction);
   }
 
   static async open(
@@ -368,11 +371,11 @@ class PostgresOAuthStateStore implements IOAuthStateStore {
   async set(state: OAuthAuthorizationState): Promise<void> {
     await this.pool.query(
       `
-        insert into oauth_states (state, value, created_at)
-        values ($1, $2, $3)
+        insert into oauth_states (state, value, created_at, tenant_id)
+        values ($1, $2, $3, $4)
         on conflict(state) do update set value = excluded.value, created_at = excluded.created_at
       `,
-      [state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt],
+      [state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt, state.tenantId ?? "local-admin"],
     );
   }
 
@@ -400,7 +403,7 @@ class PostgresRuntimeTokenStore implements IRuntimeTokenStore {
         insert into runtime_tokens (
           ${runtimeTokenColumns}
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `,
       [
         record.id,
@@ -413,6 +416,8 @@ class PostgresRuntimeTokenStore implements IRuntimeTokenStore {
         JSON.stringify(record.allowedTriggers ?? []),
         record.createdAt,
         record.lastUsedAt ?? null,
+        record.tenantId ?? null,
+        record.kind ?? "runtime",
       ],
     );
   }
@@ -581,8 +586,8 @@ class PostgresRunLogStore implements IRunLogStore {
   async add(run: RunLog): Promise<RunLogWriteResult> {
     await this.pool.query(
       `
-        insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value)
-        values ($1, $2, $3, $4, $5, $6, $7, $8)
+        insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value, tenant_id)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         on conflict(id) do update set
           service = excluded.service,
           action_id = excluded.action_id,
@@ -590,7 +595,8 @@ class PostgresRunLogStore implements IRunLogStore {
           started_at = excluded.started_at,
           completed_at = excluded.completed_at,
           ok = excluded.ok,
-          value = excluded.value
+          value = excluded.value,
+          tenant_id = excluded.tenant_id
       `,
       [
         run.id,
@@ -601,6 +607,7 @@ class PostgresRunLogStore implements IRunLogStore {
         run.completedAt,
         run.ok ? 1 : 0,
         JSON.stringify(run),
+        run.tenantId ?? null,
       ],
     );
 

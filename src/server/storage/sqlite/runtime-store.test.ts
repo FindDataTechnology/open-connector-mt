@@ -11,6 +11,7 @@ import { connectionRequestStoreTests } from "../connection-request-store.cases.t
 import { createDirectoryMigrationSource, defaultMigrationSource } from "../migration-source.ts";
 import { RuntimeTokenService } from "../runtime-token-service.ts";
 import { saasProjectStoreTests, saasMaintenanceTests } from "../saas-project-store.cases.ts";
+import { tenantStoreTests } from "../tenant-store.cases.ts";
 import { triggerStoreTests } from "../trigger-store.cases.ts";
 import { SqliteRunLogStore, SqliteRuntimeDatabase } from "./runtime-store.ts";
 
@@ -60,6 +61,7 @@ describe("SqliteRuntimeDatabase", () => {
       "0015_saas_cleanup_runtime.sql",
       "0016_trigger_policy.sql",
       "0017_trigger_subscriptions.sql",
+      "0018_multi_tenancy.sql",
     ];
     expect(entries.filter((entry) => entry.message === "sqlite migration started")).toEqual(
       migrations.map((migration) => ({ fields: { migration }, message: "sqlite migration started" })),
@@ -537,6 +539,13 @@ describe("SqliteRuntimeDatabase", () => {
       "0009_runtime_token_proxy.sql",
       "0010_connection_revision.sql",
       "0011_runtime_token_connection_scope.sql",
+      "0012_marketplace.sql",
+      "0013_connection_requests.sql",
+      "0014_saas_project.sql",
+      "0015_saas_cleanup_runtime.sql",
+      "0016_trigger_policy.sql",
+      "0017_trigger_subscriptions.sql",
+      "0018_multi_tenancy.sql",
     ]) {
       raw.exec(readFileSync(new URL(`../../../../migrations/${migration}`, import.meta.url), "utf8"));
     }
@@ -1137,6 +1146,7 @@ describe("SQLite connection requests", () => {
   });
   connectionRequestStoreTests(() => database);
   triggerStoreTests(() => database);
+  tenantStoreTests(() => database);
   saasProjectStoreTests(() => database);
 });
 

@@ -82,6 +82,8 @@ export interface StoredSaasConnection {
   revision: string;
   service: string;
   connectionName: string;
+  /** open-connector-mt: owning tenant; absent means the bootstrap tenant. */
+  tenantId?: string;
   reference: SaasConnectionReference;
   profile: CredentialProfile;
   status: "active" | "reauth_required";
@@ -96,6 +98,8 @@ export interface StoredLocalConnection {
   revision: string;
   service: string;
   connectionName: string;
+  /** open-connector-mt: owning tenant; absent means the bootstrap tenant. */
+  tenantId?: string;
   credential: ResolvedCredential;
 }
 
@@ -128,11 +132,13 @@ interface SaasExecutionConnection {
  * Storage contract for local provider connections.
  */
 export interface IConnectionStore {
-  get(service: string, connectionName: string): Promise<StoredConnection | undefined>;
-  set(service: string, connectionName: string, credential: ResolvedCredential): Promise<StoredLocalConnection>;
+  // open-connector-mt: trailing tenantId is optional everywhere; absent =
+  // bootstrap tenant = upstream single-tenant behavior.
+  get(service: string, connectionName: string, tenantId?: string): Promise<StoredConnection | undefined>;
+  set(service: string, connectionName: string, credential: ResolvedCredential, tenantId?: string): Promise<StoredLocalConnection>;
   updateCredential(input: StoredLocalConnection, refresh?: boolean): Promise<boolean>;
-  delete(service: string, connectionName: string): Promise<void>;
-  list(): Promise<StoredConnection[]>;
+  delete(service: string, connectionName: string, tenantId?: string): Promise<void>;
+  list(tenantId?: string): Promise<StoredConnection[]>;
 }
 
 interface ApiKeyCredentialValidationInput {

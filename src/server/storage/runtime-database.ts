@@ -9,6 +9,7 @@ import type { IRuntimePolicyStore } from "./runtime-policy-store.ts";
 import type { IRunLogStore } from "./runtime-store.ts";
 import type { IRuntimeTokenStore } from "./runtime-token-service.ts";
 import type { SaasProjectStore } from "./saas-project-store.ts";
+import type { TenantStore } from "./tenant-store.ts";
 
 export interface RuntimeDatabase {
   saasProjectStore: SaasProjectStore;
@@ -22,4 +23,6 @@ export interface RuntimeDatabase {
   runLogStore: IRunLogStore;
   idempotencyStore: IIdempotencyStore;
   marketplaceStore: IMarketplaceStore;
+  /** open-connector-mt: tenants, identities and OBO consents. */
+  tenantStore: TenantStore;
 }

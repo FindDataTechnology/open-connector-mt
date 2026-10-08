@@ -39,6 +39,7 @@ import {
 } from "../runtime-sql.ts";
 import { DEFAULT_RUN_LIMIT } from "../runtime-store.ts";
 import { SaasProjectStore } from "../saas-project-store.ts";
+import { TenantStore } from "../tenant-store.ts";
 import { SqlTriggerStore } from "../trigger-store.ts";
 
 type SecretJsonTable = "oauth_client_configs";
@@ -97,6 +98,7 @@ export class SqliteRuntimeDatabase implements RuntimeDatabase {
   readonly runLogStore: SqliteRunLogStore;
   readonly idempotencyStore: SqliteIdempotencyStore;
   readonly marketplaceStore: SqliteMarketplaceStore;
+  readonly tenantStore: TenantStore;
 
   private readonly database: DatabaseSync;
   private readonly secretCodec: ISecretCodec;
@@ -120,6 +122,7 @@ export class SqliteRuntimeDatabase implements RuntimeDatabase {
     this.runLogStore = new SqliteRunLogStore(this.database, options.runLimit ?? DEFAULT_RUN_LIMIT);
     this.idempotencyStore = new SqliteIdempotencyStore(this.database, this.secretCodec);
     this.marketplaceStore = new SqliteMarketplaceStore(this.database);
+    this.tenantStore = new TenantStore(transaction);
   }
 
   close(): void {
@@ -351,12 +354,12 @@ export class SqliteOAuthStateStore implements IOAuthStateStore {
     this.database
       .prepare(
         `
-        insert into oauth_states (state, value, created_at)
-        values (?, ?, ?)
+        insert into oauth_states (state, value, created_at, tenant_id)
+        values (?, ?, ?, ?)
         on conflict(state) do update set value = excluded.value, created_at = excluded.created_at
       `,
       )
-      .run(state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt);
+      .run(state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt, state.tenantId ?? "local-admin");
   }
 
   async take(state: string): Promise<OAuthAuthorizationState | undefined> {
@@ -384,7 +387,7 @@ export class SqliteRuntimeTokenStore implements IRuntimeTokenStore {
         insert into runtime_tokens (
           ${runtimeTokenColumns}
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
       .run(
@@ -398,6 +401,8 @@ export class SqliteRuntimeTokenStore implements IRuntimeTokenStore {
         JSON.stringify(record.allowedTriggers ?? []),
         record.createdAt,
         record.lastUsedAt ?? null,
+        record.tenantId ?? null,
+        record.kind ?? "runtime",
       );
   }
 
@@ -611,8 +616,8 @@ function insertRun(database: DatabaseSync, run: RunLog): void {
   database
     .prepare(
       `
-      insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value)
-      values (?, ?, ?, ?, ?, ?, ?, ?)
+      insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value, tenant_id)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?)
       on conflict(id) do update set
         service = excluded.service,
         action_id = excluded.action_id,
@@ -620,7 +625,8 @@ function insertRun(database: DatabaseSync, run: RunLog): void {
         started_at = excluded.started_at,
         completed_at = excluded.completed_at,
         ok = excluded.ok,
-        value = excluded.value
+        value = excluded.value,
+        tenant_id = excluded.tenant_id
     `,
     )
     .run(
@@ -632,6 +638,7 @@ function insertRun(database: DatabaseSync, run: RunLog): void {
       run.completedAt,
       run.ok ? 1 : 0,
       JSON.stringify(run),
+      run.tenantId ?? null,
     );
 }
 
