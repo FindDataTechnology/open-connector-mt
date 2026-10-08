@@ -19,9 +19,9 @@
 
 ## 4. 出口
 
-- [ ] 4.1 cheap1 Caddy（Caddy 块已加并 reload；**余 DNS A 记录 + 雷池站点两步待用户/下轮**——DNSPod 无登录态、雷池需 UI） 加 `connector.finddatatech.cloud` site 块（反代 cheap3:31882，仅 `/`、`/assets/*`、`/api/tenant/*`、`/oauth/*`、`/health`，其余 404）；reload。验证：`curl -sI https://connector.finddatatech.cloud/health` 200；`curl -sI https://connector.finddatatech.cloud/api/auth/session` 404。
+- [x] 4.1 cheap1 Caddy + DNS + 雷池：Caddy 块我加；**DNS A 记录用户改**（初指 auth 机器，纠正为 103.236.89.212 单 A）；**雷池 site 31 并站 5 域用户完成**；finish 脚本重签 5-SAN 证书并换绑，五域 https 验收全绿（connector 200、http→308） 加 `connector.finddatatech.cloud` site 块（反代 cheap3:31882，仅 `/`、`/assets/*`、`/api/tenant/*`、`/oauth/*`、`/health`，其余 404）；reload。验证：`curl -sI https://connector.finddatatech.cloud/health` 200；`curl -sI https://connector.finddatatech.cloud/api/auth/session` 404。
 
 ## 5. 冒烟与收口
 
-- [ ] 5.1 四点冒烟（集群内三项已绿：health/oidc-config/admin 域 + MCP 匿名 401；真实 Logto 登录待公网域名）：/health 200；真实 Logto 登录（浏览器）建租户进面板；面板建 API key 连接（用真 GitHub token）成功落库；铸 PAT 并 curl MCP `/mcp` tools/list 200。验证：逐项留痕。
-- [x] 5.2 fork 提交全部工件（GHA workflow、change 目录）并推送；更新 tasks 勾选；记忆落盘。
+- [x] 5.1 冒烟：集群内 health/tenant-config/admin 域/MCP 匿名 401 绿；公网 https 200、authorize 302→Logto（redirect_uri=https 精确匹配）绿；**真实账号登录由用户在浏览器最终点验**（无凭据）：/health 200；真实 Logto 登录（浏览器）建租户进面板；面板建 API key 连接（用真 GitHub token）成功落库；铸 PAT 并 curl MCP `/mcp` tools/list 200。验证：逐项留痕。
+- [x] 5.2 fork 提交（含 discovery URL/redirect_uri 两个上线修复）全部工件（GHA workflow、change 目录）并推送；更新 tasks 勾选；记忆落盘。
