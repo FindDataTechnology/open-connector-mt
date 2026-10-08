@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Fork of oomol-lab/open-connector (Apache-2.0), pinned at upstream tag v1.8.0,
+  evolved as the multi-tenant open-source edition "open-connector-mt" under
+  FindDataTechnology. Product lineage: 萬星 (Wanxing, constellation line) connector
+  platform; consumed by 壹座 (paas cells, per-user PAT + MCP mount), 谦面 (facet
+  agent services, service PAT + actor header), and 萬星 agents.
+  Tech stack: TypeScript ESM on Node (>=22.18 type stripping), Hono framework,
+  node:sqlite default storage / PostgreSQL optional, React 19 + Vite console,
+  vitest with shared .cases.ts store tests across SQLite/PG dialects.
+  Plain SQL migrations in migrations/ (sqlite) + migrations/postgresql/.
+  HARD CONSTRAINTS:
+  - Upstreamable by construction: TENANCY=off (default) must behave
+    byte-compatibly with upstream; tenancy code is additive, env-gated, and
+    concentrated in new files; touching upstream files is a last resort.
+  - Upstream merges bi-weekly after v1 ships; keep the fork delta thin.
+  - Never modify src/providers/** (the 1.38M-LOC catalog belongs to upstream).
+  - New tables/columns follow the migration numbering after upstream's latest.
+  - Bilingual console (zh-CN + en) via separate locale files; component changes
+    stay mechanical (t() wrapping). Catalog action guides and API error codes
+    are NOT translated.
+  Language for artifacts: zh-CN.
+
+rules:
+  proposal:
+    - Include a Non-goals section
+    - State which upstream files will be touched and why that touch is unavoidable
+  specs:
+    - Requirements must hold under both TENANCY=off and TENANCY=oidc unless the
+      requirement is explicitly scoped to one mode
+  design:
+    - Every schema change shows the migration SQL for both dialects
+    - Every new code path states which file it lives in and whether that file
+      is fork-new or upstream-touched
+  tasks:
+    - Group tasks so each group is independently verifiable
+    - Every task that touches an upstream file must say so explicitly
