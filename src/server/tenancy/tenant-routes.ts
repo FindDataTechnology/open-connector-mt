@@ -160,9 +160,15 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     const code = url.searchParams.get("code");
     if (!code) return jsonError(context, 400, "invalid_oauth_state", "Missing authorization code.");
 
-    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer));
-    const doc = discovery.ok ? ((await discovery.json()) as { token_endpoint?: string }) : undefined;
-    if (!doc?.token_endpoint) return jsonError(context, 502, "tenant_oidc_discovery", "OIDC discovery failed.");
+    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer)).catch((e) => {
+      options.logger?.warn({ err: String(e) }, "tenant oidc callback discovery fetch threw");
+      return undefined;
+    });
+    const doc = discovery?.ok ? ((await discovery.json()) as { token_endpoint?: string }) : undefined;
+    if (!doc?.token_endpoint) {
+      options.logger?.warn({ status: discovery?.status }, "tenant oidc callback discovery failed");
+      return jsonError(context, 502, "tenant_oidc_discovery", `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`);
+    }
     const origin = new URL(context.req.url).origin;
     const tokenResponse = await fetch(doc.token_endpoint, {
       method: "POST",
