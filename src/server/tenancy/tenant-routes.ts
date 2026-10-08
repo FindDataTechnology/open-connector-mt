@@ -113,8 +113,16 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (!config.issuer || !config.clientId) {
       return jsonError(context, 503, "tenant_oidc_unconfigured", "OIDC login is not configured.");
     }
-    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer));
-    if (!discovery.ok) return jsonError(context, 502, "tenant_oidc_discovery", "OIDC discovery failed.");
+    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer), {
+      signal: AbortSignal.timeout(8000),
+    }).catch((e) => {
+      options.logger?.warn({ err: String(e) }, "tenant oidc discovery fetch threw");
+      return undefined;
+    });
+    if (!discovery?.ok) {
+      options.logger?.warn({ status: discovery?.status }, "tenant oidc discovery failed");
+      return jsonError(context, 502, "tenant_oidc_discovery", `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`);
+    }
     const doc = (await discovery.json()) as { authorization_endpoint?: string };
     if (!doc.authorization_endpoint) {
       return jsonError(context, 502, "tenant_oidc_discovery", "OIDC discovery has no authorization endpoint.");
