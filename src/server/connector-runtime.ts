@@ -199,6 +199,7 @@ async function openRuntime(options: ConnectorRuntimeOptions): Promise<ConnectorR
           config: options.tenancy,
           tenantStore: database.tenantStore,
           sessionKey: { encryptionKey: options.encryptionKey, adminToken: options.adminToken },
+          publicOrigin,
         })
       : undefined;
 

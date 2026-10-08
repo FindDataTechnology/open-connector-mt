@@ -92,7 +92,7 @@ async function startStubIdp(claimedIssuer, audience) {
             }),
         ).stub_user ?? "alice";
       const code = `code-${Math.random().toString(36).slice(2)}`;
-      codes.set(code, { sub });
+      codes.set(code, { sub, redirectUri: url.searchParams.get("redirect_uri") });
       const back = new URL(url.searchParams.get("redirect_uri"));
       back.searchParams.set("code", code);
       back.searchParams.set("state", url.searchParams.get("state") ?? "");
@@ -104,6 +104,15 @@ async function startStubIdp(claimedIssuer, audience) {
       const granted = codes.get(form.get("code"));
       if (!granted) {
         res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "invalid_grant" }));
+        return;
+      }
+      // Logto (and every OIDC server) matches redirect_uri byte-for-byte
+      // against the authorize request. Enforcing it here is what makes the
+      // smoke catch proxy-topology origin bugs the stub used to ignore.
+      if (form.get("redirect_uri") !== granted.redirectUri) {
+        res
+          .writeHead(400, { "content-type": "application/json" })
+          .end(JSON.stringify({ error: "invalid_grant", error_description: "redirect_uri mismatch" }));
         return;
       }
       codes.delete(form.get("code"));
@@ -151,8 +160,14 @@ async function loginAs(base, idpBase, stubUser) {
   const callbackUrl = approved.headers.get("location");
   ok(Boolean(callbackUrl), `stub IdP approved ${stubUser} (${approved.status})`);
   // The redirect_uri already points at the connector origin — hop as-is,
-  // carrying the pending-state cookie the authorize route planted.
-  const callback = await fetch(callbackUrl, { redirect: "manual", headers: { cookie: cookies.header() } });
+  // carrying the pending-state cookie the authorize route planted. The smoke's
+  // public origin is https (the Caddy topology) while the server speaks plain
+  // http, so the harness plays TLS terminator: same path+query, dialed locally.
+  const hop = new URL(callbackUrl);
+  const callback = await fetch(`${base}${hop.pathname}${hop.search}`, {
+    redirect: "manual",
+    headers: { cookie: cookies.header() },
+  });
   cookies.absorb(callback);
   ok([200, 302].includes(callback.status), `callback accepted (${callback.status})`);
   return cookies;
@@ -167,7 +182,11 @@ function startServer(env, dataDir, port) {
       PORT: String(port),
       HOST: "127.0.0.1",
       OOMOL_CONNECT_DATA_DIR: dataDir,
-      OOMOL_CONNECT_ORIGIN: `http://127.0.0.1:${port}`,
+      // Deliberately DIFFERENT from the dialed http://127.0.0.1:<port>: the
+      // deployment sits behind a TLS terminator, and this divergence is what
+      // exposes origin bugs (redirect_uri built from the request URL instead
+      // of the configured public origin).
+      OOMOL_CONNECT_ORIGIN: `https://connector.smoke.invalid`,
       OOMOL_CONNECT_ENCRYPTION_KEY: "smoke-encryption-key",
       OOMOL_CONNECT_ADMIN_TOKEN: "smoke-admin-token",
       ...env,

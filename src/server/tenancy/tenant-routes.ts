@@ -193,7 +193,10 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
         `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`,
       );
     }
-    const origin = new URL(context.req.url).origin;
+    // Same public-origin rule as the authorize route: the IdP matches
+    // redirect_uri byte-for-byte against the authorize request, so the
+    // exchange must send the identical https value, not the proxy-local http.
+    const origin = options.publicOrigin || new URL(context.req.url).origin;
     const tokenResponse = await fetch(doc.token_endpoint, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -208,7 +211,12 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (!tokenResponse.ok) {
       const detail = (await tokenResponse.text().catch(() => "")).slice(0, 300);
       options.logger?.warn({ status: tokenResponse.status, detail }, "tenant oidc code exchange failed");
-      return jsonError(context, 401, "tenant_oidc_exchange", `OIDC code exchange failed (${tokenResponse.status}): ${detail}`);
+      return jsonError(
+        context,
+        401,
+        "tenant_oidc_exchange",
+        `OIDC code exchange failed (${tokenResponse.status}): ${detail}`,
+      );
     }
     const tokens = (await tokenResponse.json()) as { id_token?: string };
     if (!tokens.id_token) return jsonError(context, 401, "tenant_oidc_exchange", "No ID token returned.");

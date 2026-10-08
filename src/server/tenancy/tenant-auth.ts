@@ -76,9 +76,14 @@ export async function createTenantAuthHooks(deps: {
   config: TenancyConfig;
   tenantStore: ITenantStore;
   sessionKey: SessionKeyMaterial;
+  /** Public origin (OOMOL_CONNECT_ORIGIN); decides cookie Secure behind a TLS terminator. */
+  publicOrigin?: string;
   fetchImpl?: typeof fetch;
 }): Promise<TenantAuthHooks> {
   const { config, tenantStore } = deps;
+  // Behind a TLS terminator the request URL reads http, so the deployment's
+  // configured origin is the only reliable signal for Secure cookies.
+  const secureCookies = (deps.publicOrigin ?? "").startsWith("https://");
   if (config.mode !== "oidc") {
     throw new Error("tenant auth hooks are only constructed in TENANCY=oidc mode");
   }
@@ -131,7 +136,7 @@ export async function createTenantAuthHooks(deps: {
       httpOnly: true,
       maxAge: sessionMaxAgeSeconds,
       sameSite: "Lax", // the OIDC redirect round-trip is a cross-site navigation
-      secure: context.req.url.startsWith("https://"),
+      secure: secureCookies || context.req.url.startsWith("https://"),
       path: "/",
     });
   }
