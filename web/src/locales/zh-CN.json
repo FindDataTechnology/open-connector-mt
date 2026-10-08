@@ -40,7 +40,8 @@
     "actions": "操作",
     "runs": "运行记录",
     "access": "API Key",
-    "docs": "接入指南"
+    "docs": "接入指南",
+    "me": "我的连接"
   },
   "shell": {
     "invalidUnlockToken": "请输入有效的管理员 token 来解锁控制台。",
@@ -840,5 +841,39 @@
       "auth_error": "项目密钥无效"
     },
     "retry": "重新检查"
+  },
+  "tenant": {
+    "title": "我的连接",
+    "signInPrompt": "使用你的账号登录后管理连接。",
+    "signIn": "登录",
+    "signOut": "退出登录",
+    "kind": {
+      "admin": "管理员",
+      "user_pat": "PAT 会话",
+      "service_pat": "服务会话",
+      "oidc_session": "已登录"
+    },
+    "connections": {
+      "title": "连接",
+      "empty": "还没有连接，在下方添加一个。",
+      "reauth": "需要重新授权",
+      "provider": "提供方",
+      "authType": "认证方式",
+      "name": "连接名",
+      "add": "添加连接"
+    },
+    "pats": {
+      "title": "访问令牌（PAT）",
+      "empty": "还没有令牌，为你的 agent 铸造一个。",
+      "copyNow": "请立即复制该令牌——它只显示这一次。",
+      "neverUsed": "从未使用",
+      "revoke": "撤销",
+      "name": "令牌名称",
+      "mint": "铸造令牌"
+    },
+    "testRun": {
+      "title": "试跑动作",
+      "run": "运行"
+    }
   }
 }

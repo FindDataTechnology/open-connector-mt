@@ -41,6 +41,8 @@ import { OverviewPage } from "./overview-page";
 import { ProvidersPage } from "./providers-page";
 import { ResourcesPage } from "./resources-page";
 import { RunsPage } from "./runs-page";
+import { UserPage } from "./user/user-page";
+import { useTenantConfig } from "./user/use-tenant-config";
 import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 const navItems = [
   { path: "/overview", labelKey: "nav.overview", icon: Home },
+  // "/me" (open-connector-mt) is inserted at render time when tenant mode is on.
   { path: "/providers", labelKey: "nav.providers", icon: Cable },
   { path: "/oauth-apps", labelKey: "nav.oauthApps", icon: Fingerprint },
   { path: "/actions", labelKey: "nav.actions", icon: TerminalSquare },
@@ -196,6 +199,8 @@ export async function loadRuntimeData(
 export function App(): ReactNode {
   const t = useTranslate();
   const { theme, setTheme } = useThemeMode();
+  const tenantConfig = useTenantConfig();
+  const tenantMode = tenantConfig?.mode === "oidc";
   const [data, setData] = useState<AppData>(emptyData);
   const [authSession, setAuthSession] = useState<AuthSession>({
     adminAuthConfigured: false,
@@ -307,6 +312,7 @@ export function App(): ReactNode {
       loading={loading}
       error={error}
       theme={theme}
+      tenantMode={tenantMode}
       onRefresh={refresh}
       onThemeChange={setTheme}
       onLogout={logout}
@@ -333,6 +339,7 @@ function AppShell(props: {
   loading: boolean;
   error: string | null;
   theme: ThemeMode;
+  tenantMode: boolean;
   onRefresh(): void;
   onThemeChange(theme: ThemeMode): void;
   onLogout(): void;
@@ -378,7 +385,10 @@ function AppShell(props: {
 
         <div className="sidebar-content">
           <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
-            {navItems.map((item) => {
+            {((props.tenantMode
+              ? ([...navItems.slice(0, 1), { path: "/me", labelKey: "nav.me", icon: Cable } as { path: string; labelKey: string; icon: typeof Home }, ...navItems.slice(1)])
+              : navItems
+            ) as { path: string; labelKey: string; icon: typeof Home }[]).map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
@@ -499,6 +509,7 @@ function AppShell(props: {
               path="/resources"
               element={<ResourcesPage gatewayUrl={clientGatewayUrl} onGatewayUrlChange={setClientGatewayUrl} />}
             />
+            <Route path="/me" element={props.tenantMode ? <UserPage providers={props.data.providers} /> : <Navigate to="/overview" replace />} />
             <Route path="*" element={<Navigate to="/overview" replace />} />
           </Routes>
         </main>

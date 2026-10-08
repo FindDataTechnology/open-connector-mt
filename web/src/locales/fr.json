@@ -40,7 +40,8 @@
     "actions": "Actions",
     "runs": "Exécutions",
     "access": "API Key",
-    "docs": "Connecter des clients"
+    "docs": "Connecter des clients",
+    "me": "Mes connexions"
   },
   "shell": {
     "invalidUnlockToken": "Saisissez un token administrateur valide pour déverrouiller la console.",
@@ -840,5 +841,39 @@
       "auth_error": "Clé du projet invalide"
     },
     "retry": "Vérifier à nouveau"
+  },
+  "tenant": {
+    "title": "Mes connexions",
+    "signInPrompt": "Connectez-vous pour gérer vos connexions.",
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "kind": {
+      "admin": "Administrateur",
+      "user_pat": "Session PAT",
+      "service_pat": "Session de service",
+      "oidc_session": "Connecté"
+    },
+    "connections": {
+      "title": "Connexions",
+      "empty": "Aucune connexion pour l'instant. Ajoutez-en une ci-dessous.",
+      "reauth": "Reconnexion requise",
+      "provider": "Fournisseur",
+      "authType": "Type d'authentification",
+      "name": "Nom de la connexion",
+      "add": "Ajouter une connexion"
+    },
+    "pats": {
+      "title": "Jetons d'accès (PAT)",
+      "empty": "Aucun jeton pour l'instant. Créez-en un pour votre agent.",
+      "copyNow": "Copiez ce jeton maintenant — il n'est affiché qu'une seule fois.",
+      "neverUsed": "jamais utilisé",
+      "revoke": "Révoquer",
+      "name": "Nom du jeton",
+      "mint": "Créer un jeton"
+    },
+    "testRun": {
+      "title": "Tester une action",
+      "run": "Exécuter"
+    }
   }
 }

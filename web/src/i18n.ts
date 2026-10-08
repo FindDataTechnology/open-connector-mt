@@ -26,14 +26,23 @@ export function createAppI18n(initialLang: AppLang): I18n {
   return new I18n(initialLang, locales, { fallback: "en" });
 }
 
-export function resolveInitialLang(input: { storedLang: string | null; detectedLang: string | null }): AppLang {
-  return toAppLang(input.storedLang) ?? matchAppLang(input.detectedLang) ?? "en";
+export function resolveInitialLang(input: {
+  storedLang: string | null;
+  detectedLang: string | null;
+  /** open-connector-mt: LOCALE_DEFAULT wins over detection, never over the user's choice. */
+  deploymentDefault?: string | null;
+}): AppLang {
+  return toAppLang(input.storedLang) ?? toAppLang(input.deploymentDefault ?? null) ?? matchAppLang(input.detectedLang) ?? "en";
 }
 
-export function readInitialLang(storage: Storage | undefined = globalThis.localStorage): AppLang {
+export function readInitialLang(
+  storage: Storage | undefined = globalThis.localStorage,
+  deploymentDefault?: string | null,
+): AppLang {
   return resolveInitialLang({
     storedLang: storage?.getItem(langStorageKey) ?? null,
     detectedLang: detectLang(),
+    deploymentDefault,
   });
 }
 

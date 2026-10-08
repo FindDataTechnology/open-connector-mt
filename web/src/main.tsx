@@ -5,7 +5,14 @@ import { createAppI18n, readInitialLang } from "./i18n";
 import { App } from "./ui";
 import "./style.css";
 
-const i18n = createAppI18n(readInitialLang());
+// open-connector-mt: the deployment can pin a default console language
+// (LOCALE_DEFAULT) without overriding a returning user's saved choice.
+const localeDefault = await fetch("/api/tenant/config")
+  .then((r) => (r.ok ? (r.json() as Promise<{ localeDefault?: string | null }>) : null))
+  .then((config) => config?.localeDefault ?? null)
+  .catch(() => null);
+
+const i18n = createAppI18n(readInitialLang(undefined, localeDefault));
 
 // Keep <html lang> in sync with the selected language (fires immediately for the initial lang).
 i18n.lang$.subscribe((lang) => {

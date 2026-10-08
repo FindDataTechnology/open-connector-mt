@@ -40,7 +40,8 @@
     "actions": "Actions",
     "runs": "Runs",
     "access": "API Key",
-    "docs": "Connect clients"
+    "docs": "Connect clients",
+    "me": "My connections"
   },
   "shell": {
     "invalidUnlockToken": "Enter a valid admin token to unlock the console.",
@@ -840,5 +841,39 @@
       "auth_error": "Invalid project key"
     },
     "retry": "Check again"
+  },
+  "tenant": {
+    "title": "My connections",
+    "signInPrompt": "Sign in with your account to manage your connections.",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "kind": {
+      "admin": "Administrator",
+      "user_pat": "PAT session",
+      "service_pat": "Service session",
+      "oidc_session": "Signed in"
+    },
+    "connections": {
+      "title": "Connections",
+      "empty": "No connections yet. Add one below.",
+      "reauth": "Reconnect required",
+      "provider": "Provider",
+      "authType": "Auth type",
+      "name": "Connection name",
+      "add": "Add connection"
+    },
+    "pats": {
+      "title": "Access tokens (PAT)",
+      "empty": "No tokens yet. Mint one for your agents.",
+      "copyNow": "Copy this token now — it is shown only once.",
+      "neverUsed": "never used",
+      "revoke": "Revoke",
+      "name": "Token name",
+      "mint": "Mint token"
+    },
+    "testRun": {
+      "title": "Test an action",
+      "run": "Run"
+    }
   }
 }

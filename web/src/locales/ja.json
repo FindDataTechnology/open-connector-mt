@@ -40,7 +40,8 @@
     "actions": "アクション",
     "runs": "実行履歴",
     "access": "API Key",
-    "docs": "接続ガイド"
+    "docs": "接続ガイド",
+    "me": "マイ接続"
   },
   "shell": {
     "invalidUnlockToken": "有効な管理者 token を入力してコンソールをロック解除してください。",
@@ -840,5 +841,39 @@
       "auth_error": "プロジェクトキーが無効"
     },
     "retry": "再確認"
+  },
+  "tenant": {
+    "title": "マイ接続",
+    "signInPrompt": "アカウントでサインインして接続を管理します。",
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "kind": {
+      "admin": "管理者",
+      "user_pat": "PAT セッション",
+      "service_pat": "サービスセッション",
+      "oidc_session": "サインイン済み"
+    },
+    "connections": {
+      "title": "接続",
+      "empty": "接続がまだありません。下から追加してください。",
+      "reauth": "再接続が必要",
+      "provider": "プロバイダー",
+      "authType": "認証方式",
+      "name": "接続名",
+      "add": "接続を追加"
+    },
+    "pats": {
+      "title": "アクセストークン（PAT）",
+      "empty": "トークンがまだありません。エージェント用に発行してください。",
+      "copyNow": "今すぐトークンをコピーしてください——一度しか表示されません。",
+      "neverUsed": "未使用",
+      "revoke": "失効",
+      "name": "トークン名",
+      "mint": "発行"
+    },
+    "testRun": {
+      "title": "アクションをテスト",
+      "run": "実行"
+    }
   }
 }
