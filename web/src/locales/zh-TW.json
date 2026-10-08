@@ -860,7 +860,8 @@
       "provider": "提供方",
       "authType": "認證方式",
       "name": "連線名稱",
-      "add": "新增連線"
+      "add": "新增連線",
+      "delete": "刪除"
     },
     "pats": {
       "title": "存取權杖（PAT）",

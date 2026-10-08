@@ -860,7 +860,8 @@
       "provider": "提供方",
       "authType": "认证方式",
       "name": "连接名",
-      "add": "添加连接"
+      "add": "添加连接",
+      "delete": "删除"
     },
     "pats": {
       "title": "访问令牌（PAT）",

@@ -860,7 +860,8 @@
       "provider": "Provider",
       "authType": "Auth type",
       "name": "Connection name",
-      "add": "Add connection"
+      "add": "Add connection",
+      "delete": "Delete"
     },
     "pats": {
       "title": "Access tokens (PAT)",

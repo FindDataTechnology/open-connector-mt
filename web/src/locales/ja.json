@@ -860,7 +860,8 @@
       "provider": "プロバイダー",
       "authType": "認証方式",
       "name": "接続名",
-      "add": "接続を追加"
+      "add": "接続を追加",
+      "delete": "削除"
     },
     "pats": {
       "title": "アクセストークン（PAT）",

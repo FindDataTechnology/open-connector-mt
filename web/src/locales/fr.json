@@ -860,7 +860,8 @@
       "provider": "Fournisseur",
       "authType": "Type d'authentification",
       "name": "Nom de la connexion",
-      "add": "Ajouter une connexion"
+      "add": "Ajouter une connexion",
+      "delete": "Supprimer"
     },
     "pats": {
       "title": "Jetons d'accès (PAT)",

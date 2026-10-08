@@ -233,7 +233,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     // deleteCookie appends a second Set-Cookie; context.header() would clobber
     // the session cookie set above.
     deleteCookie(context, oidcStateCookie, { httpOnly: true, sameSite: "Lax", path: "/" });
-    return context.redirect("/");
+    // End users have no admin token, so the admin console would show them the
+    // unlock wall; the user panel is the destination that belongs to them.
+    return context.redirect("/me");
   });
 
   // ── Session ─────────────────────────────────────────────────────────────

@@ -112,6 +112,14 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
           await next();
           return;
         }
+        // PATs, service OBO and the OIDC session govern the RUNTIME face only
+        // (/mcp, /v1/*) plus the tenant routes (which are public paths and
+        // authenticate themselves). The admin domain stays behind the admin
+        // token exactly as upstream: without this a user PAT could read and
+        // write deployment-global config such as /api/runtime-policy.
+        if (scope === "admin") {
+          return jsonError(context, 403, "forbidden", "The admin domain requires the administrator token.");
+        }
         // Every downstream store call defaults to the (actor) tenant.
         const { runWithTenant } = await import("../tenancy/request-context.ts");
         return runWithTenant(

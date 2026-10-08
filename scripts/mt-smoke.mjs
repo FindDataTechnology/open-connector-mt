@@ -381,6 +381,14 @@ try {
     "cross-tenant / missing connections share the exact not-found shape (indistinguishable)",
   );
 
+  // ── the admin domain stays behind the admin token ──
+  // A user PAT governs /mcp and /v1/* only; reaching deployment-global admin
+  // config with it would be a privilege escalation.
+  for (const path of ["/api/providers", "/api/connections", "/api/runtime-policy"]) {
+    const response = await fetch(`${base}${path}`, { headers: { authorization: `Bearer ${patA.token}` } });
+    ok(response.status === 403, `PAT is refused on the admin domain (${path} → ${response.status})`);
+  }
+
   // ── revoke PAT A → immediate 401 ──
   const revoked = await jsonCall(base, `/api/tenant/pats/${patA.id}`, { method: "DELETE", cookies: alice });
   ok(revoked.status === 200, "alice revoked her PAT");
