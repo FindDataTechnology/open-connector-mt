@@ -39,6 +39,6 @@
 
 ## 7. 端到端与收口
 
-- [ ] 7.1 跨租户不可探测 e2e：双租户数据 + 越权 list/execute/guess 全部同形 `connection_not_found`/空列表。验证：e2e 脚本绿。
-- [ ] 7.2 全量回归：`npm run typecheck && npm test` 双方言 + oxlint/oxfmt（上游 CI 序）全绿。验证：与 1.2 基线对照零退化。
-- [ ] 7.3 冒烟剧本：TENANCY=oidc 起本地实例 → OIDC 登录（测试 issuer）→ 建 API key 连接 → 铸 PAT → MCP execute_action → 撤销 PAT 401；再跑 TENANCY=off 全程无租户面。验证：剧本脚本化留档。
+- [x] 7.1 跨租户不可探测 e2e：双租户数据 + 越权 list/execute/guess 全部同形 `connection_not_found`/空列表。验证：e2e 脚本绿。
+- [x] 7.2 全量回归：`npm run typecheck && npm test` 双方言 + oxlint/oxfmt（上游 CI 序）全绿。验证：与 1.2 基线对照零退化。
+- [x] 7.3 冒烟剧本：TENANCY=oidc 起本地实例 → OIDC 登录（测试 issuer）→ 建 API key 连接 → 铸 PAT → MCP execute_action → 撤销 PAT 401；再跑 TENANCY=off 全程无租户面。验证：剧本脚本化留档。
