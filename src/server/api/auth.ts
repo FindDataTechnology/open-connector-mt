@@ -93,7 +93,8 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
       // cookie (installed by an earlier /api/auth/session call). Checking only
       // the bearer header here would reject the cookie-carrying requests the
       // console makes after unlocking, i.e. every dashboard refresh.
-      const adminOk = await hasRequestToken(context, normalizeToken(options.adminToken) as string);
+      const configuredAdmin = normalizeToken(options.adminToken);
+      const adminOk = configuredAdmin ? await hasRequestToken(context, configuredAdmin) : false;
       let grant = adminOk ? undefined : readRuntimeGrant(context);
       if (!adminOk && !grant) {
         // A PAT bearer arrives here before the legacy token check runs; resolve
