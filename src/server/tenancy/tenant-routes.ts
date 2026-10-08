@@ -123,7 +123,12 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     });
     if (!discovery?.ok) {
       options.logger?.warn({ status: discovery?.status }, "tenant oidc discovery failed");
-      return jsonError(context, 502, "tenant_oidc_discovery", `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`);
+      return jsonError(
+        context,
+        502,
+        "tenant_oidc_discovery",
+        `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`,
+      );
     }
     const doc = (await discovery.json()) as { authorization_endpoint?: string };
     if (!doc.authorization_endpoint) {
@@ -172,14 +177,21 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     const code = url.searchParams.get("code");
     if (!code) return jsonError(context, 400, "invalid_oauth_state", "Missing authorization code.");
 
-    const discovery = await fetch(new URL(`${config.issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`)).catch((e) => {
+    const discovery = await fetch(
+      new URL(`${config.issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`),
+    ).catch((e) => {
       options.logger?.warn({ err: String(e) }, "tenant oidc callback discovery fetch threw");
       return undefined;
     });
     const doc = discovery?.ok ? ((await discovery.json()) as { token_endpoint?: string }) : undefined;
     if (!doc?.token_endpoint) {
       options.logger?.warn({ status: discovery?.status }, "tenant oidc callback discovery failed");
-      return jsonError(context, 502, "tenant_oidc_discovery", `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`);
+      return jsonError(
+        context,
+        502,
+        "tenant_oidc_discovery",
+        `OIDC discovery failed (status ${discovery?.status ?? "fetch-error"}).`,
+      );
     }
     const origin = new URL(context.req.url).origin;
     const tokenResponse = await fetch(doc.token_endpoint, {

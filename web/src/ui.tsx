@@ -201,6 +201,11 @@ export function App(): ReactNode {
   const { theme, setTheme } = useThemeMode();
   const tenantConfig = useTenantConfig();
   const tenantMode = tenantConfig?.mode === "oidc";
+  const location = useLocation();
+  // open-connector-mt: "/me" is the end-user face. It must never sit behind the
+  // admin unlock wall — a signed-in user has no admin token by definition — so
+  // it renders its own shell that loads what IT needs (the provider list).
+  const onUserPanel = tenantMode && location.pathname.startsWith("/me");
   const [data, setData] = useState<AppData>(emptyData);
   const [authSession, setAuthSession] = useState<AuthSession>({
     adminAuthConfigured: false,
@@ -297,6 +302,10 @@ export function App(): ReactNode {
       });
   }
 
+  if (onUserPanel) {
+    return <UserPanelShell theme={theme} onThemeChange={setTheme} />;
+  }
+
   if (locked) {
     return <UnlockView loading={loading} message={error} theme={theme} onThemeChange={setTheme} onUnlock={unlock} />;
   }
@@ -317,6 +326,76 @@ export function App(): ReactNode {
       onThemeChange={setTheme}
       onLogout={logout}
     />
+  );
+}
+
+/**
+ * Standalone shell for the tenant user panel (open-connector-mt).
+ *
+ * Deliberately independent of the admin dashboard's data load: the panel is
+ * reachable without an admin token, so it fetches the provider list itself and
+ * offers a link back to the admin console.
+ */
+function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMode): void }): ReactNode {
+  const t = useTranslate();
+  const [theme, setTheme] = useState(props.theme);
+  const [providers, setProviders] = useState<{ service: string; displayName: string; authTypes: string[] }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // /v1/providers is the RUNTIME face: reachable with a tenant PAT and
+    // without an admin token, unlike /api/providers (admin domain).
+    fetch("/v1/providers", { credentials: "same-origin" })
+      .then((r) => (r.ok ? (r.json() as Promise<unknown>) : Promise.resolve([])))
+      .then((payload) => {
+        if (cancelled) return;
+        const raw = (Array.isArray(payload) ? payload : ((payload as { data?: unknown[] })?.data ?? [])) as {
+          service: string;
+          displayName?: string;
+          authTypes?: string[];
+        }[];
+        setProviders(
+          raw.map((p) => ({
+            service: p.service,
+            displayName: p.displayName ?? p.service,
+            authTypes: p.authTypes ?? [],
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setProviders([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const applyTheme = (next: ThemeMode): void => {
+    setTheme(next);
+    props.onThemeChange(next);
+  };
+
+  return (
+    <div className="app-shell">
+      <header className="console-header">
+        <div className="console-brand">
+          <img src={oomolConnectLogoUrl} alt="" width={24} height={24} />
+          <span>{t("brand.console")}</span>
+        </div>
+        <div className="console-header-actions">
+          <a className="console-admin-link" href="/overview">
+            {t("nav.overview")}
+          </a>
+          <Button variant="ghost" size="sm" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          </Button>
+        </div>
+      </header>
+      <main className="user-shell-main">
+        <UserPage providers={providers} />
+      </main>
+      <Toaster />
+    </div>
   );
 }
 
