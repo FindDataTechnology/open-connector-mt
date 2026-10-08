@@ -3,6 +3,7 @@ import type { ActionPolicyService } from "../core/action-policy.ts";
 import type { RuntimeLogger, TransitFileUpload } from "../core/types.ts";
 import type { IProviderLoader } from "../providers/provider-loader.ts";
 import type { RuntimeJwtVerifier } from "./api/runtime-jwt.ts";
+import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 import type { ITransitFileService } from "./files/transit-file-store.ts";
 import type { ISecretCodec } from "./secrets/secret-codec-core.ts";
 import type { RuntimeDatabase } from "./storage/runtime-database.ts";
@@ -38,6 +39,8 @@ export interface ConnectAppOptions {
   runtimeToken?: string;
   allowedCustomOAuth?: string[];
   verifyRuntimeJwt?: RuntimeJwtVerifier;
+  /** open-connector-mt: tenant auth hooks (TENANCY=oidc only). */
+  tenantAuth?: TenantAuthHooks;
   actionPolicy?: ActionPolicyService;
   registerStaticRoutes?: (app: Hono) => void;
   logger?: RuntimeLogger;
@@ -157,6 +160,7 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
         hasRuntimeTokens: hasStoredRuntimeTokens,
         resolveRuntimeToken: (token) => runtimeTokens.resolveToken(token),
         verifyRuntimeJwt: options.verifyRuntimeJwt,
+        tenant: options.tenantAuth,
       },
       actionPolicy: options.actionPolicy,
       logger: options.logger,

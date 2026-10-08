@@ -45,6 +45,7 @@ export interface ITenantStore {
   upsertIdentity(input: UpsertIdentityInput): Promise<{ identity: IdentityRecord; created: boolean }>;
   getIdentity(issuer: string, subject: string): Promise<IdentityRecord | undefined>;
   getIdentityById(id: string): Promise<IdentityRecord | undefined>;
+  getIdentityByTenant(tenantId: string): Promise<IdentityRecord | undefined>;
   /** Disable (or re-enable) an identity; a disabled identity's tokens fail closed at the auth layer. */
   setIdentityDisabled(id: string, disabled: boolean): Promise<void>;
   /** Delete an identity, its tenant and every resource owned by that tenant (data destruction right). */
@@ -158,6 +159,13 @@ export class TenantStore implements ITenantStore {
       { sql: "delete from identities where id = ?", values: [id] },
       { sql: "delete from tenants where id = ?", values: [tenantId] },
     ]);
+  }
+
+  async getIdentityByTenant(tenantId: string): Promise<IdentityRecord | undefined> {
+    const [rows] = await this.transaction([
+      { sql: "select * from identities where tenant_id = ? order by created_at limit 1", values: [tenantId] },
+    ]);
+    return rows[0] ? readIdentityRow(rows[0]) : undefined;
   }
 
   async getTenant(id: string): Promise<TenantRecord | undefined> {

@@ -56,6 +56,10 @@ const tokenPrefix = "oct_";
 
 export interface RuntimeGrant extends TokenPolicy {
   tokenId: string;
+  /** open-connector-mt: present on PATs (user_pat/service_pat); absent = legacy runtime token. */
+  kind?: TokenKind;
+  /** open-connector-mt: owning tenant for user_pat; undefined for service_pat/legacy. */
+  tenantId?: string;
 }
 
 export class RuntimeTokenService {
@@ -127,6 +131,8 @@ export class RuntimeTokenService {
       allowedProxies: matched.allowedProxies,
       allowedConnections: matched.allowedConnections ?? [],
       allowedTriggers: matched.allowedTriggers ?? [],
+      kind: matched.kind,
+      tenantId: matched.tenantId,
     };
   }
 

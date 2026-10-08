@@ -18,6 +18,8 @@ export interface TenancyConfig {
   jwksUri?: string;
   issuer?: string;
   audience?: string;
+  /** Console OIDC public client id (PKCE); OOMOL_CONNECT_OIDC_CLIENT_ID. */
+  clientId?: string;
   /** SERVICE_OBO: off (default) | allow-all | consent */
   serviceObo: "off" | "allow-all" | "consent";
   /** LOCALE_DEFAULT: deployment default console language, en when unset. */
@@ -32,8 +34,9 @@ export function readTenancyConfig(env: Record<string, string | undefined> = proc
   return {
     mode,
     jwksUri: env.OOMOL_CONNECT_JWKS_URI?.trim() || undefined,
-    issuer: env.OOMOL_CONNECT_ISSUER?.trim() || undefined,
-    audience: env.OOMOL_CONNECT_AUDIENCE?.trim() || undefined,
+    issuer: env.OOMOL_CONNECT_JWT_ISSUER?.trim() || undefined,
+    audience: env.OOMOL_CONNECT_JWT_AUDIENCE?.trim() || undefined,
+    clientId: env.OOMOL_CONNECT_OIDC_CLIENT_ID?.trim() || undefined,
     serviceObo,
     localeDefault: env.LOCALE_DEFAULT?.trim() || undefined,
   };

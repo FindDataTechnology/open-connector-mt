@@ -1,4 +1,5 @@
 import type { RuntimeGrant } from "../storage/runtime-token-service.ts";
+import type { TenantAuthHooks, TenantPrincipal } from "../tenancy/tenant-auth.ts";
 import type { RuntimeJwtVerifier } from "./runtime-jwt.ts";
 import type { Context, MiddlewareHandler } from "hono";
 
@@ -22,6 +23,8 @@ export interface LocalAuthOptions {
   hasRuntimeTokens?(): Promise<boolean>;
   resolveRuntimeToken?(token: string): Promise<RuntimeGrant | undefined>;
   verifyRuntimeJwt?: RuntimeJwtVerifier;
+  /** open-connector-mt: present only in TENANCY=oidc mode; resolves a TenantPrincipal per request. */
+  tenant?: TenantAuthHooks;
 }
 
 export interface LocalAuthSession {
@@ -43,6 +46,20 @@ export function readRuntimeGrant(context: Context): RuntimeGrant | undefined {
   return runtimeGrants.get(context.req.raw);
 }
 
+const tenantPrincipals = new WeakMap<Request, TenantPrincipal>();
+
+/** The request's tenant principal; undefined outside TENANCY=oidc mode. */
+export function readTenantPrincipal(context: Context): TenantPrincipal | undefined {
+  return tenantPrincipals.get(context.req.raw);
+}
+
+/** Effective tenant for tenant-scoped storage work: actor tenant under OBO, else the principal's own. */
+export function effectiveTenantId(principal: TenantPrincipal | undefined): string | undefined {
+  if (!principal) return undefined;
+  if (principal.kind === "admin") return undefined; // admin sees all tenants
+  return principal.actorTenantId ?? principal.tenantId;
+}
+
 export function createLocalAuthMiddleware(options: LocalAuthOptions): MiddlewareHandler {
   const adminToken = normalizeToken(options.adminToken);
   const runtimeToken = normalizeToken(options.runtimeToken);
@@ -51,7 +68,8 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
     !runtimeToken &&
     !options.hasRuntimeTokens &&
     !options.resolveRuntimeToken &&
-    !options.verifyRuntimeJwt
+    !options.verifyRuntimeJwt &&
+    !options.tenant
   ) {
     return async (_context, next) => {
       await next();
@@ -63,6 +81,36 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
     if (isPublicPath(context.req.path, context.req.method)) {
       await next();
       return;
+    }
+
+    // open-connector-mt: in tenant mode, resolve a principal before the
+    // legacy token checks. Admin bearer still wins (cross-tenant); PATs and
+    // the OIDC session come through the tenant hooks. Legacy `kind=runtime`
+    // tokens authenticate as upstream but carry no tenant, so in tenant mode
+    // they are rejected below unless an admin token was presented.
+    if (options.tenant) {
+      const adminOk = Boolean(
+        normalizeToken(options.adminToken) && matchesConfiguredToken(context, normalizeToken(options.adminToken) as string),
+      );
+      let grant = adminOk ? undefined : readRuntimeGrant(context);
+      if (!adminOk && !grant) {
+        // A PAT bearer arrives here before the legacy token check runs; resolve
+        // it now (the resolver also populates the request's grant for policy).
+        const bearer = readBearerCredential(context);
+        if (bearer) {
+          grant = await options.resolveRuntimeToken?.(bearer);
+          if (grant) runtimeGrants.set(context.req.raw, grant);
+        }
+      }
+      const principal = await options.tenant.resolve(context, adminOk, grant);
+      if (principal) {
+        tenantPrincipals.set(context.req.raw, principal);
+        await next();
+        return;
+      }
+      if (!adminOk) {
+        return jsonError(context, 401, "unauthorized", "Tenant authentication required (OIDC session or PAT).");
+      }
     }
 
     if (
@@ -135,6 +183,7 @@ function isPublicPath(path: string, method: string): boolean {
     (method === "GET" && path === "/api/auth/session") ||
     (method === "POST" && path === "/api/auth/logout") ||
     (method === "GET" && path.startsWith("/api/files/")) ||
+    path.startsWith("/api/tenant/") ||
     isConsoleShellRequest(path, method)
   );
 }

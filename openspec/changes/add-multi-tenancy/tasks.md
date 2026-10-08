@@ -9,11 +9,11 @@
 
 ## 2. 数据层（migration 0018 + tenant-store）
 
-- [ ] 2.1 写 `migrations/0018_multi_tenancy.sql`（tenants/identities/consents 三表 + 五列 + connections 主键重建，见 design D1）。验证：SQLite 全新库启动自动应用无错。
-- [ ] 2.2 写 `migrations/postgresql/0018_multi_tenancy.sql` 同构 PG 方言。验证：`open-connector migrate` 对 PG 空库与带 0017 数据的库各跑一次成功。
-- [ ] 2.3 新文件 `src/server/storage/tenant-store.ts`：tenants/identities/consents CRUD + connections/oauth_states 租户限定包装。**[UP]** `node-runtime-database.ts`（新表注册 + MT-on-D1 启动拒绝）。验证：新增 `tenant-store.cases.ts` 进 SQLite/PG 双矩阵全绿。
-- [ ] 2.4 存量兼容验证：对 off 档（TENANCY 未设）跑上游既有 store 全部 `.cases.ts` 不变绿（默认值落引导租户，行为零变化）。验证：vitest 双方言矩阵。
-- [ ] 2.5 身份删除级联：删除 identity 级联清其租户连接/PAT/consent。验证：tenant-store.cases.ts 增级联用例。
+- [x] 2.1 写 `migrations/0018_multi_tenancy.sql`（tenants/identities/consents 三表 + 五列 + connections 主键重建，见 design D1）。验证：SQLite 全新库启动自动应用无错。
+- [x] 2.2 写 `migrations/postgresql/0018_multi_tenancy.sql` 同构 PG 方言。验证：`open-connector migrate` 对 PG 空库与带 0017 数据的库各跑一次成功。
+- [x] 2.3 新文件 `src/server/storage/tenant-store.ts`：tenants/identities/consents CRUD + connections/oauth_states 租户限定包装。**[UP]** `node-runtime-database.ts`（新表注册 + MT-on-D1 启动拒绝）。验证：新增 `tenant-store.cases.ts` 进 SQLite/PG 双矩阵全绿。
+- [x] 2.4 存量兼容验证：对 off 档（TENANCY 未设）跑上游既有 store 全部 `.cases.ts` 不变绿（默认值落引导租户，行为零变化）。验证：vitest 双方言矩阵。
+- [x] 2.5 身份删除级联：删除 identity 级联清其租户连接/PAT/consent。验证：tenant-store.cases.ts 增级联用例。
 
 ## 3. 认证层（tenant-auth + PAT + OBO）
 

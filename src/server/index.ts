@@ -10,6 +10,7 @@ import { parseActionPolicyList } from "../core/action-policy.ts";
 import { parseEgressTrustedHosts, parsePrivateNetworkAccessFlag } from "../core/request.ts";
 import { isConsoleShellRequest } from "./api/console-paths.ts";
 import { registerStaticRoutes } from "./api/static-routes.ts";
+import { readTenancyConfig } from "./tenancy/constants.ts";
 import { createConnectorRuntime } from "./connector-runtime.ts";
 import { logger } from "./logger.ts";
 import { resolveServerAssets } from "./server-assets.ts";
@@ -76,6 +77,7 @@ async function main(): Promise<void> {
       issuer: process.env.OOMOL_CONNECT_JWT_ISSUER,
       audience: process.env.OOMOL_CONNECT_JWT_AUDIENCE,
     },
+    tenancy: readTenancyConfig(),
     network: {
       allowPrivateNetwork: parsePrivateNetworkAccessFlag(process.env.OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK),
       trustedHosts: parseEgressTrustedHosts(process.env.OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS),

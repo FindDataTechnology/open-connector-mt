@@ -19,6 +19,8 @@ import { TransitFileService } from "./files/transit-files.ts";
 import { createSecretCodec } from "./secrets/secret-codec.ts";
 import { createDirectoryMigrationSource } from "./storage/migration-source.ts";
 import { createNodeRuntimeDatabase } from "./storage/node-runtime-database.ts";
+import { createTenantAuthHooks } from "./tenancy/tenant-auth.ts";
+import type { TenancyConfig } from "./tenancy/constants.ts";
 import { DEFAULT_RUN_LIMIT } from "./storage/runtime-store.ts";
 
 /** Where the runtime reads its catalog and migrations from. The package default is its bundled assets directory. */
@@ -78,6 +80,8 @@ export interface ConnectorRuntimeOptions {
   runtimeToken?: string;
   /** Verify /v1 bearer tokens as JWTs against a JWKS endpoint. */
   jwt?: RuntimeJwtConfig;
+  /** open-connector-mt: tenancy settings; hooks are built when mode === "oidc". */
+  tenancy?: TenancyConfig;
   postgres?: ConnectorPostgresOptions;
   network?: ConnectorNetworkOptions;
   /** Allow or block actions, proxies and Triggers by name. */
@@ -186,6 +190,17 @@ async function openRuntime(options: ConnectorRuntimeOptions): Promise<ConnectorR
       ? { ...common, backend: "postgresql", ...options.postgres }
       : { ...common, backend: "sqlite", path: join(dataDir, "connect.sqlite") },
   );
+  // open-connector-mt: build tenant auth hooks in oidc mode (fail-fast inside
+  // when the OIDC settings are incomplete). off mode leaves them undefined and
+  // every code path below behaves exactly like upstream.
+  const tenantAuth = options.tenancy?.mode === "oidc"
+    ? await createTenantAuthHooks({
+        config: options.tenancy,
+        tenantStore: database.tenantStore,
+        sessionKey: { encryptionKey: options.encryptionKey, adminToken: options.adminToken },
+      })
+    : undefined;
+
   let closeFiles = (): void => {};
   try {
     let transitFiles: IStagedTransitFileService;
@@ -218,6 +233,7 @@ async function openRuntime(options: ConnectorRuntimeOptions): Promise<ConnectorR
       adminToken: options.adminToken,
       runtimeToken: options.runtimeToken,
       verifyRuntimeJwt,
+      tenantAuth,
       actionPolicy: new ActionPolicyService(options.actionPolicy),
       allowedCustomOAuth: options.allowedCustomOAuth,
       logger: options.logger,
