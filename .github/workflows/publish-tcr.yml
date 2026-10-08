@@ -45,6 +45,6 @@ jobs:
           push: true
           tags: |
             hkccr.ccs.tencentyun.com/yizuo/open-connector-mt:sha-${{ steps.meta.outputs.short }}
-            hkccr.ccs.tencentyun.com/yizuo/open-connector-mt:tip
+            hkccr.ccs.tencentyun.com/yizuo/open-connector-mt:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
