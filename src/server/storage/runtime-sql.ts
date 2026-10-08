@@ -56,7 +56,10 @@ export function readRuntimeTokenRow(row: RuntimeRow): RuntimeTokenRecord {
     tenantId: readOptionalString(row, "tenant_id"),
     // The column defaults to 'runtime' in the schema; normalize back to absent
     // so legacy runtime tokens keep their upstream record shape.
-    kind: (readOptionalString(row, "kind") || undefined) === "runtime" ? undefined : (readOptionalString(row, "kind") as RuntimeTokenRecord["kind"]),
+    kind:
+      (readOptionalString(row, "kind") || undefined) === "runtime"
+        ? undefined
+        : (readOptionalString(row, "kind") as RuntimeTokenRecord["kind"]),
   };
 }
 

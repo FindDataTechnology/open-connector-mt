@@ -1,19 +1,18 @@
+import type { TenantAuthHooks } from "./tenant-auth.ts";
 import type { Context } from "hono";
-
-import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { Hono } from "hono";
 
-import { readTenancyConfig } from "./constants.ts";
-import { TenantStore } from "../storage/tenant-store.ts";
+import { Hono } from "hono";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { createServer } from "node:http";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createLocalAuthMiddleware } from "../api/auth.ts";
 import { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import { SqliteRuntimeDatabase } from "../storage/sqlite/runtime-store.ts";
-import { createLocalAuthMiddleware } from "../api/auth.ts";
-import { createTenantAuthHooks, actorHeaderName } from "./tenant-auth.ts";
-import type { TenantAuthHooks } from "./tenant-auth.ts";
+import { TenantStore } from "../storage/tenant-store.ts";
+import { readTenancyConfig } from "./constants.ts";
 import { currentStoreTenant } from "./request-context.ts";
+import { createTenantAuthHooks, actorHeaderName } from "./tenant-auth.ts";
 
 async function withJwksServer(): Promise<{
   jwksUri: string;
@@ -240,19 +239,29 @@ describe("tenant auth hooks", () => {
       capturedContext(null, "https://x.example/mcp", actor ? { [actorHeaderName]: actor } : {});
 
     // off: even a valid actor is refused
-    expect(await offHooks.resolve(await ctx("obo-user"), false, { tokenId: servicePat.id, kind: "service_pat" })).toBeUndefined();
+    expect(
+      await offHooks.resolve(await ctx("obo-user"), false, { tokenId: servicePat.id, kind: "service_pat" }),
+    ).toBeUndefined();
 
     // consent gate: no consent row yet → refused; grant → allowed
-    expect(await consentHooks.resolve(await ctx("obo-user"), false, { tokenId: servicePat.id, kind: "service_pat" })).toBeUndefined();
+    expect(
+      await consentHooks.resolve(await ctx("obo-user"), false, { tokenId: servicePat.id, kind: "service_pat" }),
+    ).toBeUndefined();
     await tenants.grantConsent(identity.tenantId, servicePat.id);
     const allowed = await consentHooks.resolve(await ctx("obo-user"), false, {
       tokenId: servicePat.id,
       kind: "service_pat",
     });
-    expect(allowed).toMatchObject({ kind: "service_pat", tenantId: identity.tenantId, actorTenantId: identity.tenantId });
+    expect(allowed).toMatchObject({
+      kind: "service_pat",
+      tenantId: identity.tenantId,
+      actorTenantId: identity.tenantId,
+    });
 
     // unknown actor sub → refused even in allow-all
-    expect(await hooks.resolve(await ctx("nobody"), false, { tokenId: servicePat.id, kind: "service_pat" })).toBeUndefined();
+    expect(
+      await hooks.resolve(await ctx("nobody"), false, { tokenId: servicePat.id, kind: "service_pat" }),
+    ).toBeUndefined();
     // no actor header → refused
     expect(await hooks.resolve(await ctx(), false, { tokenId: servicePat.id, kind: "service_pat" })).toBeUndefined();
     // user_pat carrying an actor header is not OBO material — resolver sees only the grant kind
@@ -285,25 +294,25 @@ describe("local auth middleware with tenant hooks", () => {
       sessionKey: { encryptionKey: "k" },
     });
     try {
-    const app = new Hono();
-    app.use("*", createLocalAuthMiddleware({ tenant: hooks, resolveRuntimeToken: (t) => tokens.resolveToken(t) }));
-    app.get("/mcp", (c) => c.json({ ok: true }));
+      const app = new Hono();
+      app.use("*", createLocalAuthMiddleware({ tenant: hooks, resolveRuntimeToken: (t) => tokens.resolveToken(t) }));
+      app.get("/mcp", (c) => c.json({ ok: true }));
 
-    const { identity } = await tenants.upsertIdentity({ issuer: server.issuer, subject: "mw-user" });
-    const { token, record: pat } = await tokens.createToken("p", emptyPolicy(), {
-      kind: "user_pat",
-      tenantId: identity.tenantId,
-    });
+      const { identity } = await tenants.upsertIdentity({ issuer: server.issuer, subject: "mw-user" });
+      const { token, record: pat } = await tokens.createToken("p", emptyPolicy(), {
+        kind: "user_pat",
+        tenantId: identity.tenantId,
+      });
 
-    const ok = await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } });
-    expect(ok.status).toBe(200);
+      const ok = await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } });
+      expect(ok.status).toBe(200);
 
-    await tokens.revokeToken(pat.id);
-    const revoked = await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } });
-    expect(revoked.status).toBe(401);
+      await tokens.revokeToken(pat.id);
+      const revoked = await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } });
+      expect(revoked.status).toBe(401);
 
-    const anon = await app.request("/mcp");
-    expect(anon.status).toBe(401);
+      const anon = await app.request("/mcp");
+      expect(anon.status).toBe(401);
     } finally {
       await server.close();
       database.close();
@@ -318,7 +327,13 @@ describe("request-context wiring", () => {
     const tenants = database.tenantStore;
     const tokens = new RuntimeTokenService(database.runtimeTokenStore);
     const hooks = await createTenantAuthHooks({
-      config: { mode: "oidc", jwksUri: server.jwksUri, issuer: server.issuer, audience: server.audience, serviceObo: "off" },
+      config: {
+        mode: "oidc",
+        jwksUri: server.jwksUri,
+        issuer: server.issuer,
+        audience: server.audience,
+        serviceObo: "off",
+      },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "k" },
     });

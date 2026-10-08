@@ -3,11 +3,11 @@ import type { ActionPolicyService } from "../core/action-policy.ts";
 import type { RuntimeLogger, TransitFileUpload } from "../core/types.ts";
 import type { IProviderLoader } from "../providers/provider-loader.ts";
 import type { RuntimeJwtVerifier } from "./api/runtime-jwt.ts";
-import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
-import type { TenantStore } from "./storage/tenant-store.ts";
 import type { ITransitFileService } from "./files/transit-file-store.ts";
 import type { ISecretCodec } from "./secrets/secret-codec-core.ts";
 import type { RuntimeDatabase } from "./storage/runtime-database.ts";
+import type { TenantStore } from "./storage/tenant-store.ts";
+import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 import type { Hono } from "hono";
 
 import { ConnectionService } from "../connection-service.ts";

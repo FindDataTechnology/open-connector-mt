@@ -39,7 +39,9 @@ interface CloudflareExecutionContext {
  */
 function assertTenancyCompatible(env: CloudflareEnv): void {
   if (env.TENANCY === "oidc") {
-    throw new Error("TENANCY=oidc requires the Node runtime (SQLite/PostgreSQL); Cloudflare Workers (D1) is not supported in multi-tenant mode.");
+    throw new Error(
+      "TENANCY=oidc requires the Node runtime (SQLite/PostgreSQL); Cloudflare Workers (D1) is not supported in multi-tenant mode.",
+    );
   }
 }
 

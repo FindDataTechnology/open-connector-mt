@@ -1,3 +1,4 @@
+import type { TenantConnection, TenantPat, TenantSession } from "./tenant-api";
 /**
  * User panel (open-connector-mt): the tenant-facing face of the console —
  * my connections (paste / OAuth / delete), my PATs (mint with one-time
@@ -6,22 +7,22 @@
  */
 import type { ReactNode } from "react";
 
-import { useCallback, useEffect, useState } from "react";
 import { useTranslate } from "@embra/i18n/react";
 import { KeyRound, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
-
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../api";
 import { Badge, EmptyState, InlineError, StatusDot } from "../shared-ui";
+import { tenantApi } from "./tenant-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { tenantApi } from "./tenant-api";
-import type { TenantConnection, TenantPat, TenantSession } from "./tenant-api";
 
 type LoadState = "loading" | "ready" | "error";
 
-export function UserPage(props: { providers: { service: string; displayName: string; authTypes: string[] }[] }): ReactNode {
+export function UserPage(props: {
+  providers: { service: string; displayName: string; authTypes: string[] }[];
+}): ReactNode {
   const t = useTranslate();
   const [session, setSession] = useState<TenantSession | null>(null);
   const [sessionState, setSessionState] = useState<LoadState>("loading");
@@ -88,18 +89,19 @@ export function UserPage(props: { providers: { service: string; displayName: str
           <Button variant="outline" size="sm" onClick={refreshConnections}>
             <RefreshCw size={15} /> {t("common.refresh")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => tenantApi.logout().then(() => window.location.reload())}
-          >
+          <Button variant="outline" size="sm" onClick={() => tenantApi.logout().then(() => window.location.reload())}>
             {t("tenant.signOut")}
           </Button>
         </div>
       </header>
       {error ? <InlineError message={error} /> : null}
 
-      <ConnectionsCard providers={props.providers} connections={connections} state={connectionsState} onChanged={refreshConnections} />
+      <ConnectionsCard
+        providers={props.providers}
+        connections={connections}
+        state={connectionsState}
+        onChanged={refreshConnections}
+      />
       <PatsCard />
       <TestRunCard connectionNames={connections.map((c) => c.connectionName ?? "default")} />
     </div>
@@ -178,9 +180,16 @@ function ConnectionsCard(props: {
                 {c.service} / {c.connectionName}
               </span>
               <Badge tone={c.authType === "oauth2" && c.status === "reauth_required" ? "warning" : "success"}>
-                {c.authType === "oauth2" && c.status === "reauth_required" ? t("tenant.connections.reauth") : c.authType}
+                {c.authType === "oauth2" && c.status === "reauth_required"
+                  ? t("tenant.connections.reauth")
+                  : c.authType}
               </Badge>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => remove(c.service, c.connectionName ?? "default")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => remove(c.service, c.connectionName ?? "default")}
+              >
                 <Trash2 size={14} /> {t("common.delete")}
               </Button>
             </li>
@@ -352,7 +361,11 @@ function TestRunCard(props: { connectionNames: string[] }): ReactNode {
       <div className="user-connection-form">
         <div className="user-form-row">
           <Label>actionId</Label>
-          <Input value={actionId} onChange={(e) => setActionId(e.target.value)} placeholder="github.list_repositories" />
+          <Input
+            value={actionId}
+            onChange={(e) => setActionId(e.target.value)}
+            placeholder="github.list_repositories"
+          />
         </div>
         <div className="user-form-row">
           <Label>{t("tenant.connections.name")}</Label>

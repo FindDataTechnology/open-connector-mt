@@ -3,6 +3,7 @@ import type { RuntimeLogger } from "../core/types.ts";
 import type { RuntimeJwtConfig } from "./api/runtime-jwt.ts";
 import type { S3TransitClientOptions } from "./files/s3-transit-files.ts";
 import type { IStagedTransitFileService } from "./files/transit-file-store.ts";
+import type { TenancyConfig } from "./tenancy/constants.ts";
 
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -19,9 +20,8 @@ import { TransitFileService } from "./files/transit-files.ts";
 import { createSecretCodec } from "./secrets/secret-codec.ts";
 import { createDirectoryMigrationSource } from "./storage/migration-source.ts";
 import { createNodeRuntimeDatabase } from "./storage/node-runtime-database.ts";
-import { createTenantAuthHooks } from "./tenancy/tenant-auth.ts";
-import type { TenancyConfig } from "./tenancy/constants.ts";
 import { DEFAULT_RUN_LIMIT } from "./storage/runtime-store.ts";
+import { createTenantAuthHooks } from "./tenancy/tenant-auth.ts";
 
 /** Where the runtime reads its catalog and migrations from. The package default is its bundled assets directory. */
 export interface ConnectorAssets {
@@ -193,13 +193,14 @@ async function openRuntime(options: ConnectorRuntimeOptions): Promise<ConnectorR
   // open-connector-mt: build tenant auth hooks in oidc mode (fail-fast inside
   // when the OIDC settings are incomplete). off mode leaves them undefined and
   // every code path below behaves exactly like upstream.
-  const tenantAuth = options.tenancy?.mode === "oidc"
-    ? await createTenantAuthHooks({
-        config: options.tenancy,
-        tenantStore: database.tenantStore,
-        sessionKey: { encryptionKey: options.encryptionKey, adminToken: options.adminToken },
-      })
-    : undefined;
+  const tenantAuth =
+    options.tenancy?.mode === "oidc"
+      ? await createTenantAuthHooks({
+          config: options.tenancy,
+          tenantStore: database.tenantStore,
+          sessionKey: { encryptionKey: options.encryptionKey, adminToken: options.adminToken },
+        })
+      : undefined;
 
   let closeFiles = (): void => {};
   try {

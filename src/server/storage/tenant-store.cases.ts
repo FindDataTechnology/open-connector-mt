@@ -59,8 +59,10 @@ export function tenantStoreTests(getDatabase: () => RuntimeDatabase): void {
 
   it("scopes connections per tenant and keeps same-name connections independent", async () => {
     const database = getDatabase();
-    const tenantA = (await database.tenantStore.upsertIdentity({ issuer: "https://idp.example", subject: "a" })).identity.tenantId;
-    const tenantB = (await database.tenantStore.upsertIdentity({ issuer: "https://idp.example", subject: "b" })).identity.tenantId;
+    const tenantA = (await database.tenantStore.upsertIdentity({ issuer: "https://idp.example", subject: "a" }))
+      .identity.tenantId;
+    const tenantB = (await database.tenantStore.upsertIdentity({ issuer: "https://idp.example", subject: "b" }))
+      .identity.tenantId;
 
     const a = await database.connectionStore.set("github", "default", credential("a"), tenantA);
     await database.connectionStore.set("github", "default", credential("b"), tenantB);

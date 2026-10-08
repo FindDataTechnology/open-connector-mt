@@ -1,3 +1,6 @@
+import type { RequestTransaction } from "./connection-request-store.ts";
+import type { RuntimeRow } from "./runtime-sql.ts";
+
 /**
  * Tenant registry, identities and OBO consents (open-connector-mt).
  *
@@ -7,11 +10,7 @@
  * ../tenancy/constants.ts.
  */
 import { randomUUID } from "node:crypto";
-
 import { BOOTSTRAP_TENANT_ID } from "../tenancy/constants.ts";
-import type { RequestTransaction } from "./connection-request-store.ts";
-import type { RuntimeRow } from "./runtime-sql.ts";
-
 import { readString } from "./runtime-sql.ts";
 
 export interface TenantRecord {
@@ -113,7 +112,15 @@ export class TenantStore implements ITenantStore {
           values (?, ?, ?, ?, ?, ?, ?)
           on conflict(issuer, subject) do update set email = excluded.email, display_name = excluded.display_name
           returning id`,
-        values: [identityId, tenantId, input.issuer, input.subject, input.email ?? null, input.displayName ?? null, now],
+        values: [
+          identityId,
+          tenantId,
+          input.issuer,
+          input.subject,
+          input.email ?? null,
+          input.displayName ?? null,
+          now,
+        ],
       },
     ]);
     const identity = await this.getIdentityById(identityId);

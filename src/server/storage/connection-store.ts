@@ -1,12 +1,12 @@
 import type { IConnectionStore, StoredConnection, StoredLocalConnection } from "../../connection-service.ts";
 import type { ResolvedCredential } from "../../core/types.ts";
 import type { ISecretCodec } from "../secrets/secret-codec-core.ts";
-import { BOOTSTRAP_TENANT_ID } from "../tenancy/constants.ts";
-import { currentStoreTenant } from "../tenancy/request-context.ts";
 import type { RequestTransaction } from "./connection-request-store.ts";
 import type { RuntimeRow } from "./runtime-sql.ts";
 
 import { HttpRequestError } from "../api/http-utils.ts";
+import { BOOTSTRAP_TENANT_ID } from "../tenancy/constants.ts";
+import { currentStoreTenant } from "../tenancy/request-context.ts";
 import { queueSaasConnections, readSaasConnection } from "./saas-project-store.ts";
 
 /** Connection writes share the request transaction so replacing/deleting remote references cannot lose cleanup work. */
@@ -36,7 +36,11 @@ export class SqlConnectionStore implements IConnectionStore {
     };
   }
 
-  async get(service: string, connectionName: string, tenantId: string = currentStoreTenant()): Promise<StoredConnection | undefined> {
+  async get(
+    service: string,
+    connectionName: string,
+    tenantId: string = currentStoreTenant(),
+  ): Promise<StoredConnection | undefined> {
     const [[row]] = await this.transaction([
       {
         sql: "select * from connections where service = ? and connection_name = ? and tenant_id = ?",
@@ -65,7 +69,11 @@ export class SqlConnectionStore implements IConnectionStore {
         sql: "update connections set revision = revision where service = ? and connection_name = ? and tenant_id = ?",
         values: [service, connectionName, tenantId],
       },
-      queueSaasConnections("service = ? and connection_name = ? and tenant_id = ?", [service, connectionName, tenantId]),
+      queueSaasConnections("service = ? and connection_name = ? and tenant_id = ?", [
+        service,
+        connectionName,
+        tenantId,
+      ]),
       {
         sql: `insert into connections (id, tenant_id, revision, service, connection_name, value, updated_at, provider_account_id)
           values (?, ?, ?, ?, ?, ?, ?, ?) on conflict (tenant_id, service, connection_name) do update set
@@ -135,7 +143,11 @@ export class SqlConnectionStore implements IConnectionStore {
         sql: "update connections set revision = revision where service = ? and connection_name = ? and tenant_id = ?",
         values: [service, connectionName, tenantId],
       },
-      queueSaasConnections("service = ? and connection_name = ? and tenant_id = ?", [service, connectionName, tenantId]),
+      queueSaasConnections("service = ? and connection_name = ? and tenant_id = ?", [
+        service,
+        connectionName,
+        tenantId,
+      ]),
       {
         sql: `delete from connections where service = ? and connection_name = ? and tenant_id = ? and not exists
         (select 1 from trigger_subscriptions where connection_id = connections.id and mode <> 'resource-set' and status in ('active', 'deleting'))`,

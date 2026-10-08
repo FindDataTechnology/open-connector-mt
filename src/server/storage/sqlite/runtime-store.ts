@@ -359,7 +359,12 @@ export class SqliteOAuthStateStore implements IOAuthStateStore {
         on conflict(state) do update set value = excluded.value, created_at = excluded.created_at
       `,
       )
-      .run(state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt, state.tenantId ?? "local-admin");
+      .run(
+        state.state,
+        await this.secretCodec.encode(JSON.stringify(state)),
+        state.createdAt,
+        state.tenantId ?? "local-admin",
+      );
   }
 
   async take(state: string): Promise<OAuthAuthorizationState | undefined> {

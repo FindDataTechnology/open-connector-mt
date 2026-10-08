@@ -29,8 +29,7 @@ export interface TenancyConfig {
 export function readTenancyConfig(env: Record<string, string | undefined> = process.env): TenancyConfig {
   const mode = (env.TENANCY || "off").trim() === "oidc" ? "oidc" : "off";
   const serviceOboRaw = (env.SERVICE_OBO || "off").trim();
-  const serviceObo =
-    serviceOboRaw === "allow-all" ? "allow-all" : serviceOboRaw === "consent" ? "consent" : "off";
+  const serviceObo = serviceOboRaw === "allow-all" ? "allow-all" : serviceOboRaw === "consent" ? "consent" : "off";
   return {
     mode,
     jwksUri: env.OOMOL_CONNECT_JWKS_URI?.trim() || undefined,

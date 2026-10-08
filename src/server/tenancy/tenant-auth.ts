@@ -1,3 +1,6 @@
+import type { TokenKind } from "../storage/runtime-token-service.ts";
+import type { ITenantStore } from "../storage/tenant-store.ts";
+import type { TenancyConfig } from "./constants.ts";
 /**
  * Tenant authentication (open-connector-mt).
  *
@@ -13,11 +16,8 @@
  */
 import type { Context } from "hono";
 
-import type { TenancyConfig } from "./constants.ts";
-import { BOOTSTRAP_TENANT_ID } from "./constants.ts";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import type { ITenantStore } from "../storage/tenant-store.ts";
-import type { TokenKind } from "../storage/runtime-token-service.ts";
+import { BOOTSTRAP_TENANT_ID } from "./constants.ts";
 
 export interface TenantPrincipal {
   tenantId: string;
@@ -107,7 +107,11 @@ export async function createTenantAuthHooks(deps: {
         subject: payload.sub,
         email: typeof payload.email === "string" ? payload.email : undefined,
         displayName:
-          typeof payload.name === "string" ? payload.name : typeof payload.preferred_username === "string" ? payload.preferred_username : undefined,
+          typeof payload.name === "string"
+            ? payload.name
+            : typeof payload.preferred_username === "string"
+              ? payload.preferred_username
+              : undefined,
       };
     } catch {
       return undefined;
@@ -115,7 +119,9 @@ export async function createTenantAuthHooks(deps: {
   }
 
   async function sign(payload: string): Promise<string> {
-    const key = await crypto.subtle.importKey("raw", utf8(sessionKey), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const key = await crypto.subtle.importKey("raw", utf8(sessionKey), { name: "HMAC", hash: "SHA-256" }, false, [
+      "sign",
+    ]);
     return Buffer.from(await crypto.subtle.sign("HMAC", key, utf8(payload))).toString("base64url");
   }
 
@@ -136,7 +142,8 @@ export async function createTenantAuthHooks(deps: {
 
   async function verifySessionCookie(value: string): Promise<string | undefined> {
     const [version, issuedAt, identityId, signature, ...extra] = value.split(".");
-    if (version !== sessionCookieVersion || !issuedAt || !identityId || !signature || extra.length > 0) return undefined;
+    if (version !== sessionCookieVersion || !issuedAt || !identityId || !signature || extra.length > 0)
+      return undefined;
     const issuedAtMs = Number(issuedAt);
     if (!Number.isFinite(issuedAtMs) || issuedAtMs > Date.now() || Date.now() - issuedAtMs > sessionMaxAgeMs) {
       return undefined;

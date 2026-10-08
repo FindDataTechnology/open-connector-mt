@@ -64,7 +64,7 @@ OIDC console 登录（PKCE 公共客户端）：新增 `src/server/api/tenant-ro
 
 ### D3 PAT 与 OBO：骑在 runtime_tokens 上
 
-user_pat/service_pat 都是 `runtime_tokens` 行：`kind` 区分，`tenant_id` 绑定（service_pat 为 NULL）。铸造走 console 的租户路由（内部调用上游 runtime-token-service 的哈希/存储逻辑，前缀仍 `oct_`——不发明第二套令牌格式）。grant 列照旧生效（租户校验在策略判定之前，两者叠加而非替代，见 tenant-mcp spec）。
+user*pat/service_pat 都是 `runtime_tokens` 行：`kind` 区分，`tenant_id` 绑定（service_pat 为 NULL）。铸造走 console 的租户路由（内部调用上游 runtime-token-service 的哈希/存储逻辑，前缀仍 `oct*`——不发明第二套令牌格式）。grant 列照旧生效（租户校验在策略判定之前，两者叠加而非替代，见 tenant-mcp spec）。
 
 OBO：`x-oo-connector-actor-sub` 头（子属 configured issuer）；仅 `kind='service_pat'` 的令牌具代调资格；`SERVICE_OBO` 三档在 `tenant-auth.ts` 判定；执行时有效租户 = actor 租户，`runs` 落 `tenant_id` + value 里记 service token id 与 actor identity（审计）。
 

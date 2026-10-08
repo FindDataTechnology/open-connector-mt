@@ -135,7 +135,12 @@ export interface IConnectionStore {
   // open-connector-mt: trailing tenantId is optional everywhere; absent =
   // bootstrap tenant = upstream single-tenant behavior.
   get(service: string, connectionName: string, tenantId?: string): Promise<StoredConnection | undefined>;
-  set(service: string, connectionName: string, credential: ResolvedCredential, tenantId?: string): Promise<StoredLocalConnection>;
+  set(
+    service: string,
+    connectionName: string,
+    credential: ResolvedCredential,
+    tenantId?: string,
+  ): Promise<StoredLocalConnection>;
   updateCredential(input: StoredLocalConnection, refresh?: boolean): Promise<boolean>;
   delete(service: string, connectionName: string, tenantId?: string): Promise<void>;
   list(tenantId?: string): Promise<StoredConnection[]>;

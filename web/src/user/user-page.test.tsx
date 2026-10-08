@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
 
+import { I18n } from "@embra/i18n";
+import { I18nProvider } from "@embra/i18n/react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-
-import { I18n } from "@embra/i18n";
-import { I18nProvider } from "@embra/i18n/react";
 
 vi.mock("../api", () => ({
   ApiError: class extends Error {
@@ -29,13 +28,24 @@ const providers = [{ service: "github", displayName: "GitHub", authTypes: ["api_
 
 const locales = {
   en: {
-    common: { refresh: "Refresh", delete: "Delete", close: "Close", apiUnavailable: "unavailable", runtimeReady: "ready" },
+    common: {
+      refresh: "Refresh",
+      delete: "Delete",
+      close: "Close",
+      apiUnavailable: "unavailable",
+      runtimeReady: "ready",
+    },
     tenant: {
       title: "My connections",
       signInPrompt: "Sign in with your account to manage your connections.",
       signIn: "Sign in",
       signOut: "Sign out",
-      kind: { admin: "Administrator", user_pat: "PAT session", service_pat: "Service session", oidc_session: "Signed in" },
+      kind: {
+        admin: "Administrator",
+        user_pat: "PAT session",
+        service_pat: "Service session",
+        oidc_session: "Signed in",
+      },
       connections: {
         title: "Connections",
         empty: "No connections yet. Add one below.",

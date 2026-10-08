@@ -375,7 +375,12 @@ class PostgresOAuthStateStore implements IOAuthStateStore {
         values ($1, $2, $3, $4)
         on conflict(state) do update set value = excluded.value, created_at = excluded.created_at
       `,
-      [state.state, await this.secretCodec.encode(JSON.stringify(state)), state.createdAt, state.tenantId ?? "local-admin"],
+      [
+        state.state,
+        await this.secretCodec.encode(JSON.stringify(state)),
+        state.createdAt,
+        state.tenantId ?? "local-admin",
+      ],
     );
   }
 

@@ -18,6 +18,8 @@ import type { IIdempotencyStore } from "./storage/idempotency-store.ts";
 import type { IRuntimePolicyStore } from "./storage/runtime-policy-store.ts";
 import type { RunLogCaller, RunLogListInput } from "./storage/runtime-store.ts";
 import type { RuntimeGrant, RuntimeTokenService } from "./storage/runtime-token-service.ts";
+import type { TenantStore } from "./storage/tenant-store.ts";
+import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 import type { Context, MiddlewareHandler } from "hono";
 
 import { Hono } from "hono";
@@ -47,9 +49,6 @@ import {
 import { ActionRunner } from "./actions/action-runner.ts";
 import { renderActionMarkdown } from "./api/action-markdown.ts";
 import { clearLocalAuthCookie, createLocalAuthMiddleware, readLocalAuthSession, readRuntimeGrant } from "./api/auth.ts";
-import { registerTenantRoutes } from "./tenancy/tenant-routes.ts";
-import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
-import type { TenantStore } from "./storage/tenant-store.ts";
 import { getResponseCachePolicy } from "./api/cache-policy.ts";
 import { createConnectionRoutes } from "./api/connection-routes.ts";
 import { HttpRequestError, internalError, jsonError, notFound, readJsonBody } from "./api/http-utils.ts";
@@ -76,6 +75,7 @@ import { TransitFileError } from "./files/transit-file-store.ts";
 import { ProxyRunner } from "./proxy/proxy-runner.ts";
 import { decodeRunLogCursor } from "./storage/runtime-store.ts";
 import { summarizeRuntimeToken } from "./storage/runtime-token-service.ts";
+import { registerTenantRoutes } from "./tenancy/tenant-routes.ts";
 
 type McpModule = typeof import("../mcp.ts");
 

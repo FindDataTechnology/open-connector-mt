@@ -16,22 +16,110 @@
 @import "./styles/unlock.css";
 
 /* ── open-connector-mt: user panel (/me) ─────────────────────────── */
-.user-page { display: flex; flex-direction: column; gap: 24px; max-width: 880px; }
-.user-page-header { display: flex; justify-content: space-between; align-items: center; }
-.user-page-header h1 { font-size: 1.4rem; font-weight: 600; }
-.user-page-subtitle { color: var(--muted-foreground, #667); font-size: 0.85rem; }
-.user-page-actions { display: flex; gap: 8px; }
-.user-card { border: 1px solid var(--border, #e2e4e9); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
-.user-card h2 { font-size: 1.05rem; font-weight: 600; }
-.user-centered { display: flex; justify-content: center; padding: 48px 0; }
-.user-signin { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-.user-connection-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.user-connection-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; }
-.user-connection-list li:hover { background: var(--muted, #f4f5f7); }
-.user-connection-name { flex: 1; font-weight: 500; }
-.user-pat-used { color: var(--muted-foreground, #667); font-size: 0.8rem; }
-.user-connection-form { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border, #e2e4e9); padding-top: 12px; }
-.user-form-row { display: flex; flex-direction: column; gap: 4px; }
-.user-pat-minted { border: 1px dashed var(--border, #ccc); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.user-pat-minted code { word-break: break-all; font-size: 0.8rem; background: var(--muted, #f4f5f7); padding: 8px; border-radius: 6px; }
-.user-test-result { background: var(--muted, #f4f5f7); padding: 10px; border-radius: 8px; font-size: 0.78rem; max-height: 300px; overflow: auto; }
+.user-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 880px;
+}
+.user-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.user-page-header h1 {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.user-page-subtitle {
+  color: var(--muted-foreground, #667);
+  font-size: 0.85rem;
+}
+.user-page-actions {
+  display: flex;
+  gap: 8px;
+}
+.user-card {
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.user-card h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.user-centered {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+.user-signin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.user-connection-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.user-connection-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.user-connection-list li:hover {
+  background: var(--muted, #f4f5f7);
+}
+.user-connection-name {
+  flex: 1;
+  font-weight: 500;
+}
+.user-pat-used {
+  color: var(--muted-foreground, #667);
+  font-size: 0.8rem;
+}
+.user-connection-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--border, #e2e4e9);
+  padding-top: 12px;
+}
+.user-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.user-pat-minted {
+  border: 1px dashed var(--border, #ccc);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.user-pat-minted code {
+  word-break: break-all;
+  font-size: 0.8rem;
+  background: var(--muted, #f4f5f7);
+  padding: 8px;
+  border-radius: 6px;
+}
+.user-test-result {
+  background: var(--muted, #f4f5f7);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  max-height: 300px;
+  overflow: auto;
+}

@@ -1,3 +1,13 @@
+import type { CatalogStore } from "../../catalog-store.ts";
+import type { ConnectionService } from "../../connection-service.ts";
+import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
+import type { OAuthFlowService } from "../../oauth/oauth-flow-service.ts";
+import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
+import type { ITenantStore } from "../storage/tenant-store.ts";
+import type { TenancyConfig } from "./constants.ts";
+import type { TenantAuthHooks } from "./tenant-auth.ts";
+import type { Context } from "hono";
+
 /**
  * Tenant-facing console routes (open-connector-mt).
  *
@@ -8,22 +18,12 @@
  * caller's tenant by the data layer.
  */
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
-
-import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
-import type { CatalogStore } from "../../catalog-store.ts";
-import type { ConnectionService } from "../../connection-service.ts";
-import type { OAuthFlowService } from "../../oauth/oauth-flow-service.ts";
-import { jsonError } from "../api/http-utils.ts";
 import { readTenantPrincipal } from "../api/auth.ts";
-import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
-import type { ITenantStore } from "../storage/tenant-store.ts";
+import { jsonError } from "../api/http-utils.ts";
 import { PLATFORM_TENANT_ID } from "./constants.ts";
-import type { TenancyConfig } from "./constants.ts";
-import { readSessionCookieName } from "./tenant-auth.ts";
-import type { TenantAuthHooks } from "./tenant-auth.ts";
 import { currentStoreTenant, runWithTenant } from "./request-context.ts";
+import { readSessionCookieName } from "./tenant-auth.ts";
 
 const oidcStateCookie = "oomol_connect_oidc_pending";
 const oidcPendingMaxAgeSeconds = 600;
@@ -61,10 +61,7 @@ interface RequestPrincipal {
   tokenId?: string;
 }
 
-async function requireUser(
-  context: Context,
-  options: TenantRouteOptions,
-): Promise<RequestPrincipal | undefined> {
+async function requireUser(context: Context, options: TenantRouteOptions): Promise<RequestPrincipal | undefined> {
   // Session cookie first, then PAT/admin bearer via the shared hook resolver.
   const cookie = context.req.header("cookie") ?? "";
   const match = new RegExp(`(?:^|;\\s*)${readSessionCookieName()}=([^;]+)`).exec(cookie);
@@ -164,9 +161,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (!code) return jsonError(context, 400, "invalid_oauth_state", "Missing authorization code.");
 
     const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer));
-    const doc = discovery.ok
-      ? ((await discovery.json()) as { token_endpoint?: string })
-      : undefined;
+    const doc = discovery.ok ? ((await discovery.json()) as { token_endpoint?: string }) : undefined;
     if (!doc?.token_endpoint) return jsonError(context, 502, "tenant_oidc_discovery", "OIDC discovery failed.");
     const origin = new URL(context.req.url).origin;
     const tokenResponse = await fetch(doc.token_endpoint, {
@@ -315,7 +310,11 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     return context.json({
       pats: all
         .filter((t) => t.kind === "user_pat")
-        .map((t) => ({ id: (t as { id: string }).id, name: (t as { name: string }).name, lastUsedAt: (t as { lastUsedAt?: string }).lastUsedAt ?? null })),
+        .map((t) => ({
+          id: (t as { id: string }).id,
+          name: (t as { name: string }).name,
+          lastUsedAt: (t as { lastUsedAt?: string }).lastUsedAt ?? null,
+        })),
     });
   });
 
@@ -336,7 +335,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
 
   app.delete("/api/tenant/pats/:id", async (context) => {
     const id = context.req.param("id");
-    const record = await options.runtimeTokens.listTokens().then((rows) => rows.find((r) => (r as { id: string }).id === id));
+    const record = await options.runtimeTokens
+      .listTokens()
+      .then((rows) => rows.find((r) => (r as { id: string }).id === id));
     if (!record) return jsonError(context, 404, "runtime_token_not_found", `PAT not found: ${id}`);
     if ((record as { kind?: string }).kind !== "user_pat") {
       return jsonError(context, 403, "forbidden", "Only user PATs are revocable here.");

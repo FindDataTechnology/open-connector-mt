@@ -43,8 +43,12 @@ export const tenantApi = {
   session: () => apiGet<TenantSession>("/api/tenant/session"),
   logout: () => apiPost<void>("/api/tenant/logout", {}),
   connections: () => apiGet<{ connections: TenantConnection[] }>("/api/tenant/connections"),
-  createConnection: (input: { service: string; connectionName?: string; authType: string; values: Record<string, string> }) =>
-    apiPost("/api/tenant/connections", input),
+  createConnection: (input: {
+    service: string;
+    connectionName?: string;
+    authType: string;
+    values: Record<string, string>;
+  }) => apiPost("/api/tenant/connections", input),
   deleteConnection: (service: string, name: string) =>
     apiDelete<unknown>(`/api/tenant/connections/${encodeURIComponent(service)}/${encodeURIComponent(name)}`),
   startOAuth: (service: string, connectionName?: string) =>

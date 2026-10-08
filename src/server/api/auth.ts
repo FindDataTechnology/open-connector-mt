@@ -90,7 +90,8 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
     // they are rejected below unless an admin token was presented.
     if (options.tenant) {
       const adminOk = Boolean(
-        normalizeToken(options.adminToken) && matchesConfiguredToken(context, normalizeToken(options.adminToken) as string),
+        normalizeToken(options.adminToken) &&
+        matchesConfiguredToken(context, normalizeToken(options.adminToken) as string),
       );
       let grant = adminOk ? undefined : readRuntimeGrant(context);
       if (!adminOk && !grant) {

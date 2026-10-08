@@ -32,7 +32,12 @@ export function resolveInitialLang(input: {
   /** open-connector-mt: LOCALE_DEFAULT wins over detection, never over the user's choice. */
   deploymentDefault?: string | null;
 }): AppLang {
-  return toAppLang(input.storedLang) ?? toAppLang(input.deploymentDefault ?? null) ?? matchAppLang(input.detectedLang) ?? "en";
+  return (
+    toAppLang(input.storedLang) ??
+    toAppLang(input.deploymentDefault ?? null) ??
+    matchAppLang(input.detectedLang) ??
+    "en"
+  );
 }
 
 export function readInitialLang(

@@ -10,8 +10,8 @@ import type { IRunLogStore, RunLog, RunLogCaller, RunLogListInput, RunLogPage } 
 import { ConnectionError } from "../../connection-service.ts";
 import { executeAction as executeProviderAction } from "../../core/execution.ts";
 import { SaasError } from "../../saas/saas-client.ts";
-import { safeRunLogError, summarizeForRunLog } from "./run-log-summary.ts";
 import { currentTenantAudit } from "../tenancy/request-context.ts";
+import { safeRunLogError, summarizeForRunLog } from "./run-log-summary.ts";
 
 export interface ActionRunnerOptions {
   catalog: CatalogStore;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exportJWK, exportPKCS8, generateKeyPair, importPKCS8, SignJWT } from "jose";
 /**
  * Multi-tenancy smoke script (open-connector-mt).
  *
@@ -14,7 +15,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { exportJWK, exportPKCS8, generateKeyPair, importPKCS8, SignJWT } from "jose";
 
 const ok = (cond, label) => {
   if (!cond) throw new Error(`SMOKE FAIL: ${label}`);
@@ -68,16 +68,14 @@ async function startStubIdp(claimedIssuer, audience) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, issuer);
     if (url.pathname === "/.well-known/openid-configuration") {
-      res
-        .writeHead(200, { "content-type": "application/json" })
-        .end(
-          JSON.stringify({
-            issuer,
-            authorization_endpoint: `${issuer}/authorize`,
-            token_endpoint: `${issuer}/token`,
-            jwks_uri: `${issuer}/jwks`,
-          }),
-        );
+      res.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({
+          issuer,
+          authorization_endpoint: `${issuer}/authorize`,
+          token_endpoint: `${issuer}/token`,
+          jwks_uri: `${issuer}/jwks`,
+        }),
+      );
     } else if (url.pathname === "/jwks") {
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ keys: [jwk] }));
     } else if (url.pathname === "/authorize") {
@@ -146,7 +144,10 @@ async function loginAs(base, idpBase, stubUser) {
   cookies.absorb(authorize);
   const idpUrl = authorize.headers.get("location");
   ok(Boolean(idpUrl), `authorize redirect issued (${authorize.status})`);
-  const approved = await fetch(localHop(idpUrl, idpBase), { redirect: "manual", headers: { cookie: `stub_user=${stubUser}` } });
+  const approved = await fetch(localHop(idpUrl, idpBase), {
+    redirect: "manual",
+    headers: { cookie: `stub_user=${stubUser}` },
+  });
   const callbackUrl = approved.headers.get("location");
   ok(Boolean(callbackUrl), `stub IdP approved ${stubUser} (${approved.status})`);
   // The redirect_uri already points at the connector origin — hop as-is,
@@ -293,23 +294,31 @@ try {
   ok(created.status === 200, `alice created a no_auth connection on ${target.service}`);
 
   // ── MCP as PAT A ──
-  const listed = await mcp(base, {
-    jsonrpc: "2.0",
-    id: 1,
-    method: "tools/call",
-    params: { name: "list_connections", arguments: {} },
-  }, patA.token);
+  const listed = await mcp(
+    base,
+    {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "list_connections", arguments: {} },
+    },
+    patA.token,
+  );
   if (!JSON.stringify(listed.json).includes(target.service)) {
     console.error("list_connections payload:", JSON.stringify(listed.json).slice(0, 400));
   }
   ok(JSON.stringify(listed.json).includes(target.service), "list_connections sees alice's connection over MCP");
 
-  const missing = await mcp(base, {
-    jsonrpc: "2.0",
-    id: 2,
-    method: "tools/call",
-    params: { name: "execute_action", arguments: { actionId, connectionName: "no-such-connection" } },
-  }, patA.token);
+  const missing = await mcp(
+    base,
+    {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "execute_action", arguments: { actionId, connectionName: "no-such-connection" } },
+    },
+    patA.token,
+  );
   const missingText = JSON.stringify(missing.json);
   ok(missingText.includes("connection_not_found"), "missing connection executes as connection_not_found");
 
@@ -322,23 +331,32 @@ try {
     cookies: bob,
     body: { service: target.service, connectionName: "default", authType: "no_auth", values: {} },
   });
-  const patB = (await jsonCall(base, "/api/tenant/pats", { method: "POST", cookies: bob, body: { name: "bob-agent" } })).json;
+  const patB = (await jsonCall(base, "/api/tenant/pats", { method: "POST", cookies: bob, body: { name: "bob-agent" } }))
+    .json;
 
-  const bobList = await mcp(base, {
-    jsonrpc: "2.0",
-    id: 3,
-    method: "tools/call",
-    params: { name: "list_connections", arguments: {} },
-  }, patB.token);
+  const bobList = await mcp(
+    base,
+    {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "list_connections", arguments: {} },
+    },
+    patB.token,
+  );
   const bobText = JSON.stringify(bobList.json);
   ok(!bobText.includes("alice"), "bob's list never mentions alice's connections");
 
-  const bobMissing = await mcp(base, {
-    jsonrpc: "2.0",
-    id: 4,
-    method: "tools/call",
-    params: { name: "execute_action", arguments: { actionId, connectionName: "no-such-connection" } },
-  }, patB.token);
+  const bobMissing = await mcp(
+    base,
+    {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "execute_action", arguments: { actionId, connectionName: "no-such-connection" } },
+    },
+    patB.token,
+  );
   ok(
     JSON.stringify(bobMissing.json).includes("connection_not_found"),
     "cross-tenant / missing connections share the exact not-found shape (indistinguishable)",

@@ -9,7 +9,6 @@
  * upstream single-tenant behavior.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
-
 import { BOOTSTRAP_TENANT_ID } from "./constants.ts";
 
 export interface TenantRequestContext {
