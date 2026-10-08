@@ -380,7 +380,7 @@ function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMod
       <header className="console-header">
         <div className="console-brand">
           <img src={oomolConnectLogoUrl} alt="" width={24} height={24} />
-          <span>{t("brand.console")}</span>
+          <span>{t("brand.subtitle")}</span>
         </div>
         <div className="console-header-actions">
           <a className="console-admin-link" href="/overview">

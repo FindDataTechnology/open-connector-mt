@@ -123,3 +123,36 @@
   max-height: 300px;
   overflow: auto;
 }
+
+/* ── open-connector-mt: standalone user-panel shell (/me) ─────────── */
+.user-shell-main {
+  padding: 24px 0;
+  max-width: 880px;
+  margin: 0 auto;
+}
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #e2e4e9);
+}
+.console-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+.console-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.console-admin-link {
+  font-size: 0.85rem;
+  color: var(--muted-foreground, #667);
+  text-decoration: none;
+}
+.console-admin-link:hover {
+  text-decoration: underline;
+}
