@@ -113,7 +113,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (!config.issuer || !config.clientId) {
       return jsonError(context, 503, "tenant_oidc_unconfigured", "OIDC login is not configured.");
     }
-    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer), {
+    const discovery = await fetch(new URL(`${config.issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`), {
       signal: AbortSignal.timeout(8000),
     }).catch((e) => {
       options.logger?.warn({ err: String(e) }, "tenant oidc discovery fetch threw");
@@ -168,7 +168,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     const code = url.searchParams.get("code");
     if (!code) return jsonError(context, 400, "invalid_oauth_state", "Missing authorization code.");
 
-    const discovery = await fetch(new URL(".well-known/openid-configuration", config.issuer)).catch((e) => {
+    const discovery = await fetch(new URL(`${config.issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`)).catch((e) => {
       options.logger?.warn({ err: String(e) }, "tenant oidc callback discovery fetch threw");
       return undefined;
     });
