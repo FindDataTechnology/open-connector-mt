@@ -665,6 +665,13 @@
     },
     "name": "名称",
     "namePlaceholder": "本地 MCP 客户端",
+    "kind": {
+      "label": "令牌类型",
+      "runtime": "运行令牌",
+      "servicePat": "服务主体（service_pat）",
+      "userPat": "用户 PAT",
+      "servicePatHint": "服务令牌不属于任何租户：通过 x-oo-connector-actor-sub 请求头以指定用户的租户执行。用户 PAT 请在租户控制台铸造。"
+    },
     "createToken": "创建 Token",
     "createTokenDescription": "给要使用这个运行时 token 的客户端命名。",
     "closeCreateToken": "关闭创建 token 弹窗",

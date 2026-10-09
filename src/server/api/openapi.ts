@@ -731,6 +731,15 @@ export function createOpenApiDocument(
             ),
             createdAt: jsonSchema.string({ description: "Creation timestamp." }),
             lastUsedAt: jsonSchema.string({ description: "Last successful use timestamp." }),
+            kind: {
+              type: "string",
+              enum: ["user_pat", "service_pat"],
+              description:
+                "Token kind when set: 'user_pat' binds to the owning tenant, 'service_pat' acts via the OBO actor header. Absent means a legacy runtime token.",
+            },
+            tenantId: jsonSchema.string({
+              description: "Owning tenant for user PATs; absent for service PATs and legacy runtime tokens.",
+            }),
           },
           {
             required: [
@@ -749,6 +758,12 @@ export function createOpenApiDocument(
         RuntimeTokenCreateRequest: jsonSchema.object(
           {
             name: jsonSchema.string({ description: "User-facing token label." }),
+            kind: {
+              type: "string",
+              enum: ["service_pat"],
+              description:
+                "Optional token kind. Only 'service_pat' is accepted: a tenant-less service token that acts via the x-oo-connector-actor-sub OBO header. User PATs bind to an identity and are minted from an OIDC session instead. Omit for a legacy runtime token.",
+            },
             allowedActions: policyRuleArraySchema("Optional action allow rules for the new token."),
             blockedActions: policyRuleArraySchema("Optional action block rules for the new token."),
             allowedProxies: policyRuleArraySchema(

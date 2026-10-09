@@ -38,11 +38,12 @@ function jar() {
   };
 }
 
-async function jsonCall(base, path, { method = "GET", body, cookies } = {}) {
+async function jsonCall(base, path, { method = "GET", body, cookies, headers } = {}) {
   const response = await fetch(`${base}${path}`, {
     method,
     headers: {
       ...(body ? { "content-type": "application/json" } : {}),
+      ...(headers ?? {}),
       ...(cookies ? { cookie: cookies.header() } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -209,13 +210,14 @@ async function waitHealthy(base, tries = 240) {
   throw new Error("server did not become healthy");
 }
 
-const mcp = (base, body, token) =>
+const mcp = (base, body, token, extraHeaders) =>
   fetch(`${base}/mcp`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       accept: "application/json, text/event-stream",
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(extraHeaders ?? {}),
     },
     body: JSON.stringify(body),
   }).then(async (r) => {
@@ -394,6 +396,67 @@ try {
   ok(revoked.status === 200, "alice revoked her PAT");
   const afterRevoke = await mcp(base, { jsonrpc: "2.0", id: 5, method: "tools/list" }, patA.token);
   ok(afterRevoke.status === 401, "revoked PAT is rejected immediately");
+
+  // ── service PAT: admin mints, runs on the actor's tenant, dies on revoke ──
+  const adminHeaders = { authorization: "Bearer smoke-admin-token" };
+  const minted = await jsonCall(base, "/api/runtime-tokens", {
+    method: "POST",
+    headers: adminHeaders,
+    body: { name: "facet-service", kind: "service_pat" },
+  });
+  ok(
+    minted.status === 200 && minted.json?.record?.kind === "service_pat" && minted.json.token?.startsWith("oct_"),
+    "admin minted a service_pat (kind projected, tenant-less)",
+  );
+  const servicePat = minted.json.token;
+
+  const badKind = await jsonCall(base, "/api/runtime-tokens", {
+    method: "POST",
+    headers: adminHeaders,
+    body: { name: "not-a-user", kind: "user_pat" },
+  });
+  ok(badKind.status === 400, "user_pat cannot be minted from the admin domain (OIDC session path only)");
+
+  const as = (sub) => ({ "x-oo-connector-actor-sub": sub });
+  const noActor = await mcp(base, { jsonrpc: "2.0", id: 6, method: "tools/list" }, servicePat);
+  ok(noActor.status === 401, "service_pat without an actor header is refused");
+  const unknownActor = await mcp(base, { jsonrpc: "2.0", id: 7, method: "tools/list" }, servicePat, as("nobody"));
+  ok(unknownActor.status === 401, "unknown actor sub is refused");
+
+  // End-to-end OBO call through the real server + MCP transport. Positive
+  // tenant-data scoping (the actor's tenant only) is asserted at middleware
+  // level in tenant-auth.test.ts against a real store — catalog-level markers
+  // cannot separate tenants here because no_auth providers surface as virtual
+  // connections for every tenant and api_key creates verify against live APIs.
+  const oboList = (id, sub) =>
+    mcp(
+      base,
+      {
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name: "list_connections", arguments: { service: target.service } },
+      },
+      servicePat,
+      as(sub),
+    );
+  const oboAlice = await oboList(8, "alice");
+  ok(oboAlice.status === 200, "service_pat + actor=alice executes MCP tools/call on the real server");
+  const oboBob = await oboList(9, "bob");
+  ok(oboBob.status === 200, "the same service_pat with actor=bob also resolves");
+
+  const adminDenied = await fetch(`${base}/api/providers`, {
+    headers: { authorization: `Bearer ${servicePat}`, ...as("alice") },
+  });
+  ok(adminDenied.status === 403, "service_pat cannot reach the admin domain even with an actor header");
+
+  const revokeService = await fetch(`${base}/api/runtime-tokens/${minted.json.record.id}`, {
+    method: "DELETE",
+    headers: adminHeaders,
+  });
+  ok(revokeService.status === 200, "admin revoked the service_pat");
+  const deadPat = await mcp(base, { jsonrpc: "2.0", id: 10, method: "tools/list" }, servicePat, as("alice"));
+  ok(deadPat.status === 401, "revoked service_pat is rejected immediately");
 
   // ── restart in TENANCY=off ──
   console.log("rebooting TENANCY=off");

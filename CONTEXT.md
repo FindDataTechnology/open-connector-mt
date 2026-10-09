@@ -25,7 +25,7 @@ _Avoid_: API key（那是连接里的凭证概念）、runtime token（上游 ki
 _Avoid_: 机器账号、bot token
 
 **代调（on-behalf-of / OBO）**:
-服务主体凭 `x-oo-connector-actor-sub` 头指定终端用户租户并以该租户执行；consent 三档（off/allow-all/consent）管辖。
+服务主体凭 `x-oo-connector-actor-sub` 头指定终端用户租户并以该租户执行；actor 必须是已登记身份（谦面用法：owner 用户的统一登录 sub）；consent 三档（off/allow-all/consent）管辖。
 _Avoid_: 模拟（impersonate，暗示无审计的伪造）
 
 **同意（consent）**:

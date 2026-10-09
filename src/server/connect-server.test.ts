@@ -26,6 +26,8 @@ import type {
 import type { IRuntimePolicyStore, RuntimePolicyRecord } from "./storage/runtime-policy-store.ts";
 import type { IRunLogStore, RunLog, RunLogListInput, RunLogPage } from "./storage/runtime-store.ts";
 import type { IRuntimeTokenStore, RuntimeTokenRecord } from "./storage/runtime-token-service.ts";
+import type { TenantStore } from "./storage/tenant-store.ts";
+import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -48,6 +50,7 @@ import { AesGcmSecretCodec, PlainTextSecretCodec } from "./secrets/secret-codec.
 import { decodeRunLogCursor, encodeRunLogCursor } from "./storage/runtime-store.ts";
 import { RuntimeTokenService } from "./storage/runtime-token-service.ts";
 import { SqliteRuntimeDatabase } from "./storage/sqlite/runtime-store.ts";
+import { createTenantAuthHooks } from "./tenancy/tenant-auth.ts";
 
 const apiKeyProvider: ProviderDefinition = {
   service: "example",
@@ -1795,6 +1798,108 @@ describe("ConnectServer", () => {
       headers: { authorization: `Bearer ${createdBody.token}` },
     });
     expect(reopened.status).toBe(200);
+  });
+
+  it("mints service_pat tokens via kind and rejects every other kind", async () => {
+    const runtimeTokens = new RuntimeTokenService(new MemoryRuntimeTokenStore());
+    const app = createTestServer([apiKeyProvider], {
+      auth: { adminToken: "local-token" },
+      runtimeTokens,
+    }).createApp();
+    const adminHeaders = {
+      authorization: "Bearer local-token",
+      "content-type": "application/json",
+    };
+
+    const created = await app.request("/api/runtime-tokens", {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "facet-service", kind: "service_pat" }),
+    });
+    expect(created.status).toBe(200);
+    const createdBody = (await created.json()) as { token: string; record: RuntimeTokenRecord };
+    expect(createdBody.token).toMatch(/^oct_/);
+    expect(createdBody.record.kind).toBe("service_pat");
+    expect(createdBody.record.tenantId ?? null).toBe(null);
+
+    const listed = await app.request("/api/runtime-tokens", { headers: adminHeaders });
+    expect(listed.status).toBe(200);
+    await expect(listed.json()).resolves.toMatchObject([{ id: createdBody.record.id, kind: "service_pat" }]);
+
+    for (const kind of ["user_pat", "runtime", 42]) {
+      const rejected = await app.request("/api/runtime-tokens", {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({ name: "x", kind }),
+      });
+      expect(rejected.status).toBe(400);
+      const body = (await rejected.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("invalid_input");
+      expect(body.error.message).toContain("service_pat");
+    }
+
+    const legacy = await app.request("/api/runtime-tokens", {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "claude-desktop" }),
+    });
+    expect(legacy.status).toBe(200);
+    const legacyBody = (await legacy.json()) as { record: RuntimeTokenRecord };
+    expect(legacyBody.record.kind ?? "absent").toBe("absent");
+
+    const finalList = await app.request("/api/runtime-tokens", { headers: adminHeaders });
+    const rows = (await finalList.json()) as RuntimeTokenRecord[];
+    expect(rows).toHaveLength(2);
+  });
+
+  it("revoking a service_pat clears its consent rows when tenant hooks are wired", async () => {
+    const database = new SqliteRuntimeDatabase(":memory:");
+    requestDatabases.push(database);
+    const runtimeTokens = new RuntimeTokenService(database.runtimeTokenStore);
+    const hooks = await createTenantAuthHooks({
+      config: {
+        mode: "oidc",
+        jwksUri: "https://idp.example/jwks",
+        issuer: "https://idp.example",
+        audience: "connect",
+        serviceObo: "off",
+      },
+      tenantStore: database.tenantStore,
+      sessionKey: { encryptionKey: "k" },
+    });
+    const app = createTestServer([apiKeyProvider], {
+      auth: { adminToken: "local-token" },
+      runtimeTokens,
+      tenantAuth: hooks,
+      tenantStore: database.tenantStore,
+    }).createApp();
+    const adminHeaders = {
+      authorization: "Bearer local-token",
+      "content-type": "application/json",
+    };
+
+    const created = await app.request("/api/runtime-tokens", {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "facet-service", kind: "service_pat" }),
+    });
+    expect(created.status).toBe(200);
+    const { record } = (await created.json()) as { record: RuntimeTokenRecord };
+
+    const { identity } = await database.tenantStore.upsertIdentity({
+      issuer: "https://idp.example",
+      subject: "consent-holder",
+    });
+    await database.tenantStore.grantConsent(identity.tenantId, record.id);
+    await expect(database.tenantStore.hasConsent(identity.tenantId, record.id)).resolves.toBe(true);
+
+    const revoked = await app.request(`/api/runtime-tokens/${record.id}`, {
+      method: "DELETE",
+      headers: adminHeaders,
+    });
+    expect(revoked.status).toBe(200);
+    await expect(revoked.json()).resolves.toEqual({ id: record.id, revoked: true });
+    await expect(database.tenantStore.hasConsent(identity.tenantId, record.id)).resolves.toBe(false);
   });
 
   it("reads and replaces Runtime policy without changing deployment rules", async () => {
@@ -3837,6 +3942,8 @@ interface CreateTestServerOptions {
   uploadTransitFile?: (request: Request) => Promise<TransitFileUpload>;
   secretCodec?: ISecretCodec;
   allowedCustomOAuth?: string[];
+  tenantAuth?: TenantAuthHooks;
+  tenantStore?: TenantStore;
 }
 
 function createTestServer(providers: ProviderDefinition[], options: CreateTestServerOptions = {}): ConnectServer {
@@ -3915,6 +4022,8 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
     actionPolicy: options.actionPolicy,
     actionSearch: options.actionSearch,
     logger: options.logger,
+    tenantAuth: options.tenantAuth,
+    tenantStore: options.tenantStore,
   });
 }
 

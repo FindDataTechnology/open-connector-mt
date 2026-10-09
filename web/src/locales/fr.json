@@ -665,6 +665,13 @@
     },
     "name": "Nom",
     "namePlaceholder": "Client MCP local",
+    "kind": {
+      "label": "Type de jeton",
+      "runtime": "Jeton d'exécution",
+      "servicePat": "Principal de service (service_pat)",
+      "userPat": "PAT utilisateur",
+      "servicePatHint": "Un jeton de service n'appartient à aucun locataire : il s'exécute sur le locataire de l'utilisateur désigné par l'en-tête de requête x-oo-connector-actor-sub. Les PAT utilisateur se créent depuis la console du locataire."
+    },
     "createToken": "Créer un token",
     "createTokenDescription": "Nommez le client qui utilisera ce token runtime.",
     "closeCreateToken": "Fermer la boîte de création de token",

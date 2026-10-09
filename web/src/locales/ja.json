@@ -665,6 +665,13 @@
     },
     "name": "名前",
     "namePlaceholder": "ローカル MCP client",
+    "kind": {
+      "label": "トークン種類",
+      "runtime": "ランタイムトークン",
+      "servicePat": "サービスプリンシパル（service_pat）",
+      "userPat": "ユーザーPAT",
+      "servicePatHint": "サービストークンはテナントに所属しません。x-oo-connector-actor-sub リクエストヘッダーで指定したユーザーのテナントとして実行されます。ユーザーPATはテナントコンソールから発行してください。"
+    },
     "createToken": "Token を作成",
     "createTokenDescription": "この runtime token を使用する client に名前を付けてください。",
     "closeCreateToken": "token 作成 dialog を閉じる",

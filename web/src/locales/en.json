@@ -665,6 +665,13 @@
     },
     "name": "Name",
     "namePlaceholder": "Local MCP client",
+    "kind": {
+      "label": "Token kind",
+      "runtime": "Runtime token",
+      "servicePat": "Service principal (service_pat)",
+      "userPat": "User PAT",
+      "servicePatHint": "Service tokens belong to no tenant: they run on a user's tenant via the x-oo-connector-actor-sub request header. User PATs are minted from the tenant console instead."
+    },
     "createToken": "Create Token",
     "createTokenDescription": "Name the client that will use this runtime token.",
     "closeCreateToken": "Close create token dialog",

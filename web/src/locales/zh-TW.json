@@ -665,6 +665,13 @@
     },
     "name": "名稱",
     "namePlaceholder": "本機 MCP 用戶端",
+    "kind": {
+      "label": "Token 類型",
+      "runtime": "執行時 Token",
+      "servicePat": "服務主體（service_pat）",
+      "userPat": "使用者 PAT",
+      "servicePatHint": "服務 Token 不屬於任何租戶：透過 x-oo-connector-actor-sub 請求標頭，以指定使用者的租戶執行。使用者 PAT 請改在租戶控制台鑄造。"
+    },
     "createToken": "建立權杖",
     "createTokenDescription": "為使用此執行階段權杖的用戶端命名。",
     "closeCreateToken": "關閉建立權杖對話方塊",

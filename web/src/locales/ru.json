@@ -665,6 +665,13 @@
     },
     "name": "Имя",
     "namePlaceholder": "Локальный MCP client",
+    "kind": {
+      "label": "Тип токена",
+      "runtime": "Токен среды выполнения",
+      "servicePat": "Сервисный субъект (service_pat)",
+      "userPat": "Пользовательский PAT",
+      "servicePatHint": "Сервисный токен не принадлежит ни одному тенанту: он выполняется в тенанте пользователя, заданном заголовком запроса x-oo-connector-actor-sub. Пользовательские PAT выпускаются в консоли тенанта."
+    },
     "createToken": "Создать token",
     "createTokenDescription": "Назовите client, который будет использовать этот runtime token.",
     "closeCreateToken": "Закрыть окно создания token",

@@ -81,10 +81,12 @@ interface CreateTokenDialogProps {
   status: string | null;
   copied: boolean;
   draft: PolicyEditorDraft;
+  kind: "runtime" | "service_pat";
   connections: ConnectionGrantDraft;
   connectionOptions: ConnectionGrantOption[];
   providers: ProviderDefinition[];
   onNameChange(name: string): void;
+  onKindChange(kind: "runtime" | "service_pat"): void;
   onDraftChange(draft: PolicyEditorDraft): void;
   onConnectionsChange(draft: ConnectionGrantDraft): void;
   onSubmit(event: SubmitEvent<HTMLFormElement>): Promise<void>;
@@ -106,6 +108,7 @@ export function createTokenDialogMode(created: RuntimeTokenCreation | null): "fo
 export function AccessPage(props: AccessPageProps): ReactNode {
   const t = useTranslate();
   const [name, setName] = useState("");
+  const [createKind, setCreateKind] = useState<"runtime" | "service_pat">("runtime");
   const [createDraft, setCreateDraft] = useState(() => createPolicyEditorDraft(emptyPolicyRules()));
   const [createConnections, setCreateConnections] = useState(() => createConnectionGrantDraft());
   const [created, setCreated] = useState<RuntimeTokenCreation | null>(null);
@@ -163,10 +166,12 @@ export function AccessPage(props: AccessPageProps): ReactNode {
     try {
       const result = await apiPost<RuntimeTokenCreation>("/api/runtime-tokens", {
         name,
+        ...(createKind === "service_pat" ? { kind: createKind } : {}),
         ...runtimeTokenPolicyBody(rules, createConnections),
       });
       setCreated(result);
       setName("");
+      setCreateKind("runtime");
       setCreateDraft(createPolicyEditorDraft(emptyPolicyRules()));
       setCreateConnections(createConnectionGrantDraft());
       setTokenStatus(t("access.created"));
@@ -234,6 +239,7 @@ export function AccessPage(props: AccessPageProps): ReactNode {
 
   function openCreate(): void {
     setName("");
+    setCreateKind("runtime");
     setCreateDraft(createPolicyEditorDraft(emptyPolicyRules()));
     setCreateConnections(createConnectionGrantDraft());
     setCreated(null);
@@ -244,6 +250,7 @@ export function AccessPage(props: AccessPageProps): ReactNode {
   function closeCreate(): void {
     setCreateOpen(false);
     setName("");
+    setCreateKind("runtime");
     setCreateDraft(createPolicyEditorDraft(emptyPolicyRules()));
     setCreateConnections(createConnectionGrantDraft());
     setCreated(null);
@@ -347,7 +354,14 @@ export function AccessPage(props: AccessPageProps): ReactNode {
                 return (
                   <TableRow key={token.id}>
                     <TableCell>
-                      <strong>{token.name}</strong>
+                      <div className="flex items-center gap-2">
+                        <strong>{token.name}</strong>
+                        {token.kind ? (
+                          <Badge>
+                            {token.kind === "service_pat" ? t("access.kind.servicePat") : t("access.kind.userPat")}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge tone="success">{t("common.active")}</Badge>
@@ -404,10 +418,12 @@ export function AccessPage(props: AccessPageProps): ReactNode {
           status={tokenStatus}
           copied={copied}
           draft={createDraft}
+          kind={createKind}
           connections={createConnections}
           connectionOptions={connectionOptions}
           providers={props.providers}
           onNameChange={setName}
+          onKindChange={setCreateKind}
           onDraftChange={setCreateDraft}
           onConnectionsChange={setCreateConnections}
           onSubmit={submitToken}
@@ -832,6 +848,22 @@ function CreateTokenDialog(props: CreateTokenDialogProps): ReactNode {
                   placeholder={t("access.namePlaceholder")}
                 />
               </Label>
+              <div className="field">
+                <span>{t("access.kind.label")}</span>
+                <Select
+                  value={props.kind}
+                  onValueChange={(value) => props.onKindChange(value === "service_pat" ? "service_pat" : "runtime")}
+                >
+                  <SelectTrigger aria-label={t("access.kind.label")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start" sideOffset={4}>
+                    <SelectItem value="runtime">{t("access.kind.runtime")}</SelectItem>
+                    <SelectItem value="service_pat">{t("access.kind.servicePat")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {props.kind === "service_pat" ? <small>{t("access.kind.servicePatHint")}</small> : null}
+              </div>
               <PolicyEditor
                 draft={props.draft}
                 providers={props.providers}

@@ -1279,8 +1279,21 @@ export class ConnectServer {
     if (!name) {
       return jsonError(context, 400, "invalid_input", "name is required.");
     }
-
-    const created = await this.options.runtimeTokens.createToken(name, readTokenPolicy(body, true));
+    // open-connector-mt: the admin domain mints service PATs only — user PATs
+    // bind to an identity and come from the OIDC session path (/api/tenant/pats).
+    if (body.kind !== undefined && body.kind !== "service_pat") {
+      return jsonError(
+        context,
+        400,
+        "invalid_input",
+        "kind supports only 'service_pat'; user PATs are minted from an OIDC session via POST /api/tenant/pats.",
+      );
+    }
+    const created = await this.options.runtimeTokens.createToken(
+      name,
+      readTokenPolicy(body, true),
+      body.kind === undefined ? undefined : { kind: "service_pat" },
+    );
     return context.json({
       token: created.token,
       record: summarizeRuntimeToken(created.record),
@@ -1296,6 +1309,12 @@ export class ConnectServer {
   }
 
   private async revokeRuntimeToken(context: Context, id: string): Promise<Response> {
+    // open-connector-mt: consent rows only reference service PATs; they must be
+    // cleared before the token row dies (the consents FK points at it).
+    // tenantAuth is unset in off mode.
+    if (this.options.tenantAuth) {
+      await this.options.tenantStore?.revokeConsentsForToken(id);
+    }
     if (!(await this.options.runtimeTokens.revokeToken(id))) {
       return jsonError(context, 404, "runtime_token_not_found", `Runtime token not found: ${id}.`);
     }

@@ -318,6 +318,74 @@ describe("local auth middleware with tenant hooks", () => {
       database.close();
     }
   });
+
+  it("runs service_pat OBO as the actor tenant through the middleware", async () => {
+    const server = await withJwksServer();
+    const database = new SqliteRuntimeDatabase(":memory:");
+    const tokens = new RuntimeTokenService(database.runtimeTokenStore);
+    const tenants = database.tenantStore;
+    const buildApp = async (serviceObo: "off" | "allow-all") => {
+      const hooks = await createTenantAuthHooks({
+        config: {
+          mode: "oidc",
+          jwksUri: server.jwksUri,
+          issuer: server.issuer,
+          audience: server.audience,
+          serviceObo,
+        },
+        tenantStore: tenants,
+        sessionKey: { encryptionKey: "k" },
+      });
+      const app = new Hono();
+      app.use("*", createLocalAuthMiddleware({ tenant: hooks, resolveRuntimeToken: (t) => tokens.resolveToken(t) }));
+      const seen: string[] = [];
+      app.get("/v1/probe", async (c) => {
+        const rows = await database.connectionStore.list();
+        seen.push(currentStoreTenant());
+        return c.json({ count: rows.length });
+      });
+      app.get("/api/providers", (c) => c.json({ ok: true }));
+      return { app, seen };
+    };
+    try {
+      const { identity } = await tenants.upsertIdentity({ issuer: server.issuer, subject: "obo-mw-user" });
+      await database.connectionStore.set("github", "svc", credFor("obo"), identity.tenantId);
+      const { token, record: servicePat } = await tokens.createToken("facet", emptyPolicy(), {
+        kind: "service_pat",
+      });
+      const headers = { authorization: `Bearer ${token}`, [actorHeaderName]: "obo-mw-user" };
+
+      const allowAll = await buildApp("allow-all");
+      const ok = await allowAll.app.request("/v1/probe", { headers });
+      expect(ok.status).toBe(200);
+      expect(allowAll.seen[0]).toBe(identity.tenantId); // executes inside the actor's tenant
+      await expect(ok.json()).resolves.toMatchObject({ count: 1 }); // and only sees that tenant's connections
+
+      const noActor = await allowAll.app.request("/v1/probe", {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(noActor.status).toBe(401);
+
+      const unknownActor = await allowAll.app.request("/v1/probe", {
+        headers: { authorization: `Bearer ${token}`, [actorHeaderName]: "nobody" },
+      });
+      expect(unknownActor.status).toBe(401);
+
+      const adminScope = await allowAll.app.request("/api/providers", { headers });
+      expect(adminScope.status).toBe(403);
+
+      const off = await buildApp("off");
+      const offRes = await off.app.request("/v1/probe", { headers });
+      expect(offRes.status).toBe(401);
+
+      await tokens.revokeToken(servicePat.id);
+      const revoked = await allowAll.app.request("/v1/probe", { headers });
+      expect(revoked.status).toBe(401);
+    } finally {
+      await server.close();
+      database.close();
+    }
+  });
 });
 
 describe("request-context wiring", () => {

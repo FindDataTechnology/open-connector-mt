@@ -2,7 +2,7 @@
 
 ### Requirement: 服务主体 PAT 的发放与撤销
 
-`service_pat` SHALL 只能由 admin 域铸造：铸造请求 SHALL 可指定 `kind: "service_pat"`，铸造出的令牌 SHALL 不带 `tenant_id`，明文 SHALL 仅在铸造响应中出现一次，且 SHALL 出现在运行时令牌列表（带 kind 标识）并可被撤销。请求中出现的其他 kind 值 SHALL 被拒绝（400），因为 `user_pat` 必须绑定身份、只能经 OIDC 会话路径铸造。`TENANCY=off` 下未指定 kind 的铸造行为 SHALL 与上游一致。
+`service_pat` SHALL 只能由 admin 域铸造：铸造请求 SHALL 可指定 `kind: "service_pat"`，铸造出的令牌 SHALL 不带 `tenant_id`，明文 SHALL 仅在铸造响应中出现一次，且 SHALL 出现在运行时令牌列表（带 kind 标识）并可被撤销；撤销 SHALL 同步终结指向该令牌的全部 consent 行。请求中出现的其他 kind 值 SHALL 被拒绝（400），因为 `user_pat` 必须绑定身份、只能经 OIDC 会话路径铸造。`TENANCY=off` 下未指定 kind 的铸造行为 SHALL 与上游一致。
 
 #### Scenario: admin 铸造 service_pat
 
@@ -14,6 +14,11 @@
 
 - **WHEN** admin 撤销某 service_pat 后它以 actor 头再次请求
 - **THEN** 拒绝（401），与 user_pat 撤销同形
+
+#### Scenario: admin 撤销终结全部 consent 行
+
+- **WHEN** admin 撤销某 service_pat，且存在租户对它的 consent 行
+- **THEN** 这些 consent 行随撤销一并终结，consent 查询不再命中
 
 #### Scenario: 非法 kind 被拒
 

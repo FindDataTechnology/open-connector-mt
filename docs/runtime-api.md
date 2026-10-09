@@ -69,6 +69,41 @@ limitations.
 Admin endpoints under `/api/*`, `/docs`, and the Web Console use `OOMOL_CONNECT_ADMIN_TOKEN` when it
 is configured.
 
+### Service PATs and on-behalf-of access (multi-tenant)
+
+On a `TENANCY=oidc` deployment the admin can mint a **service PAT** — a tenant-less token that
+represents a trusted service instead of a user:
+
+```bash
+curl -s -X POST http://localhost:3000/api/runtime-tokens \
+  -H "authorization: Bearer $OOMOL_CONNECT_ADMIN_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name":"agent-service","kind":"service_pat","allowedActions":[],"blockedActions":[],"allowedProxies":[]}'
+```
+
+`kind` accepts only `service_pat`. User PATs bind to an identity and are minted from an OIDC session
+in the tenant console (`POST /api/tenant/pats`); sending `user_pat` here returns `400`.
+
+A service PAT authenticates on `/v1/*` and `/mcp` together with an actor header naming the end user
+it acts for:
+
+```text
+Authorization: Bearer <service_pat>
+x-oo-connector-actor-sub: <user-sub>
+```
+
+- The actor must be an already-registered identity (`(issuer, subject)` from the deployment's OIDC
+  provider); users register on their first login. Missing or unknown actors are rejected — identities
+  are never auto-created.
+- Requests execute inside the actor's tenant and only see that tenant's connections; run records
+  carry both the service token and the acting tenant for audit.
+- `SERVICE_OBO` gates the whole mechanism: `off` (default) rejects every service PAT, `allow-all`
+  trusts the service for any registered actor, `consent` additionally requires a per-tenant consent
+  row for the token. Revoking the token via admin `DELETE /api/runtime-tokens/:id` takes effect
+  immediately and clears its consent rows.
+- Service PATs never reach the admin domain: admin routes under `/api/*` answer `403` regardless of
+  the actor header.
+
 ## Provider Triggers
 
 Provider Triggers run through registered server operations:

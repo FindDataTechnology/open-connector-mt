@@ -175,6 +175,10 @@ export interface RuntimeTokenSummary {
   allowedConnections: string[];
   createdAt: string;
   lastUsedAt?: string;
+  /** Set for PATs only; absent means a legacy runtime token. */
+  kind?: "user_pat" | "service_pat";
+  /** Owning tenant for user PATs; absent for service PATs and legacy tokens. */
+  tenantId?: string;
 }
 
 export interface PolicyRules {
