@@ -21,4 +21,5 @@
 
 - [x] 4.1 `scripts/mt-smoke.mjs` 增加 service_pat 段：admin 铸造 → actor 头调用 → 撤销 → 401（沿用既有 stub IdP 与真实服务器）；验证：`node scripts/mt-smoke.mjs` SMOKE PASS 且新 ok 行出现（8 行：铸造/kind 投影、user_pat 400、无 actor 401、未知 actor 401、actor=alice tools/call 200、actor=bob 200、admin 域 403、撤销 401；正向租户数据隔离在 tenant-auth.test.ts 中间件层以真库断言——no_auth 虚拟连接全员可见、api_key 创建走活校验，目录级标记分不开租户）
 - [x] 4.2 全量门：lint + format + typecheck + 单测 + 冒烟全绿；验证：记录命令与结果（oxlint 0 警告；oxfmt root+web 全净；typecheck src/scripts/examples + web tsc 干净；vitest 全量 3471 passed；web 测试 191 passed；openspec validate 绿）
-- [ ] 4.3 上线 fd-prod（前置：环境设 `SERVICE_OBO=allow-all` 并重启，见 design D7）并以真 actor 身份跑一次代调（记录 run 的 tenant_id 与 actor 审计字段）；验证：pod 内 DB 查询 runs 表
+- [x] 4.3 上线 fd-prod（前置：环境设 `SERVICE_OBO=allow-all` 并重启，见 design D7）并以真 actor 身份跑一次代调（记录 run 的 tenant_id 与 actor 审计字段）；验证：pod 内 DB 查询 runs 表
+——**2026-10-09 生产实证**：sha-069625a 滚动；admin 铸 service_pat（kind=service_pat、tenantId=null、明文一次性）；actor=r80b1gx744mq（doc-studio，已登记身份）头下 tools/list 200 且只见 actor 租户连接；execute_action appledb.get_device 到达 provider（上游 ETIMEDOUT 不影响链路判定），runs 表实落两行：tenant_id=actor 租户 e6109763…、value.runtimeTokenId=该 service_pat id（e6de7375…）——service/actor 双审计实证；撤销后同请求 401。
