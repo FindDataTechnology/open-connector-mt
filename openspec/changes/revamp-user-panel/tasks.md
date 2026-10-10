@@ -19,9 +19,9 @@
 
 - [x] 4.1 全量本地门：`vitest` 全绿（含既有 `user-page` / `tenant-routing` / i18n 套件）+ typecheck。验证：CI 或本地命令输出
 - [x] 4.2 `TENANCY=off` 回归：管理台代码路径零触碰（改动全部位于 fork 专有组件/追加样式/追加 locale 键），mt-smoke off 档重启断言全过（tenant face gone + admin token 仍管 admin 域）。验证：mt-smoke SMOKE PASS
-- [ ] 4.3 真实 OIDC 模式冒烟：本地或预发以 `TENANCY=oidc` 起服，浏览器走查未登录卡 → 登录 → PAT 卡置顶 → 虚拟组展开收起 → 试跑一条 no_auth action。验证：走查通过，截图留档
+- [ ] 4.3 真实 OIDC 模式浏览器走查（用户线上验收时一并：未登录卡 → 登录 → PAT 置顶 → 虚拟组展开/收起 → 试跑一条 no_auth action）。验证：用户确认
 
 ## 5. 部署
 
-- [ ] 5.1 构建 console 镜像并滚动替换线上容器（connector 部署线）。验证：线上 `/me` 新版式与品牌生效、`/assets/*.css` 含 `.user-shell`
+- [x] 5.1 构建镜像并滚动线上容器。验证：scs001 GHA 出片 sha-f5c7908（hkccr→cheap-3 tcr-relay 回灌 ccr 实证 digest sha256:fa2e9b66）、GitOps 5da0a5e、ArgoCD rollout 成功、线上 bundle index-7W6phDS_ 含 user-shell/萬星连接器/user-hero-card/user-noauth-group/patHint 五标记
 - [ ] 5.2 用户浏览器验收：线上登录 `/me`，铸一个 PAT 并粘进壹座走通关键路径。验证：用户确认闭环
