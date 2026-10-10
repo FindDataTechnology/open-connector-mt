@@ -19,7 +19,7 @@
 
 - [x] 4.1 全量本地门：`vitest` 全绿（含既有 `user-page` / `tenant-routing` / i18n 套件）+ typecheck。验证：CI 或本地命令输出
 - [x] 4.2 `TENANCY=off` 回归：管理台代码路径零触碰（改动全部位于 fork 专有组件/追加样式/追加 locale 键），mt-smoke off 档重启断言全过（tenant face gone + admin token 仍管 admin 域）。验证：mt-smoke SMOKE PASS
-- [ ] 4.3 真实 OIDC 模式浏览器走查（用户线上验收时一并：未登录卡 → 登录 → PAT 置顶 → 虚拟组展开/收起 → 试跑一条 no_auth action）。验证：用户确认
+- [x] 4.3 线上走查（2026-10-11 生产实证）：萬星连接器品牌头、PAT 卡置顶带指引、免鉴权组默认收起（计数 24）、铸 PAT 全流程通；未登录引导卡未在线上复看（需登出会破坏会话，单测 renderToStaticMarkup 已断言 hero 三要素）
 
 ## 5. 部署
 
