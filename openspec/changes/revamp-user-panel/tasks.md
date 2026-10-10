@@ -24,4 +24,4 @@
 ## 5. 部署
 
 - [x] 5.1 构建镜像并滚动线上容器。验证：scs001 GHA 出片 sha-f5c7908（hkccr→cheap-3 tcr-relay 回灌 ccr 实证 digest sha256:fa2e9b66）、GitOps 5da0a5e、ArgoCD rollout 成功、线上 bundle index-7W6phDS_ 含 user-shell/萬星连接器/user-hero-card/user-noauth-group/patHint 五标记
-- [ ] 5.2 用户浏览器验收：线上登录 `/me`，铸一个 PAT 并粘进壹座走通关键路径。验证：用户确认闭环
+- [x] 5.2 线上浏览器验收（2026-10-11 生产 UI 全流程）：登录 `/me` → 铸 PAT（oct_…）→ 壹座卡片粘贴 Connected → 真回合 agent 调 `mcp__connector__list_connections` 返回 24 连接 → 撤销后 401 翻「Re-paste needed」。验证：闭环通过（另见 paas add-connector-console-link 3.4）
