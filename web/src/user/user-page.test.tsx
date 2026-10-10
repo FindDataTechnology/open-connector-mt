@@ -40,6 +40,7 @@ const locales = {
       signInIntro: "Store your SaaS connections securely and mint access tokens for your agent platforms.",
       noAuthGroup: "Auth-free data sources (no setup needed, ready to use)",
       patHint: "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
+      backToAdmin: "Back to admin console",
     },
     tenant: {
       title: "My connections",
@@ -61,6 +62,11 @@ const locales = {
         name: "Connection name",
         add: "Add connection",
         delete: "Delete",
+        pickProvider: "Choose provider",
+        pickProviderHint: "Search by name or service id.",
+        searchPlaceholder: "Search providers…",
+        matchCount: "{count} matches",
+        oauthCapable: "OAuth",
       },
       pats: {
         title: "Access tokens (PAT)",
@@ -72,6 +78,14 @@ const locales = {
         mint: "Mint token",
       },
       testRun: { title: "Test an action", run: "Run" },
+      runs: {
+        title: "Recent runs",
+        empty: "No calls yet.",
+        hint: "Open to load your recent calls.",
+        externalToken: "external token",
+        input: "Input",
+        output: "Output",
+      },
     },
   },
 } as never;
@@ -177,5 +191,76 @@ describe("UserPanelBody (revamp-user-panel)", () => {
     expect(markup).toContain("github / default");
     expect(markup).toContain("hackernews / default");
     expect(markup.match(/Delete/g)).toHaveLength(1);
+  });
+});
+
+describe("add-user-panel-return-and-picker", () => {
+  it("excludes auth-free-only providers from the pickable catalog", async () => {
+    const { configurableProviders } = await import("./user-page");
+    const catalog = [
+      { service: "github", displayName: "GitHub", authTypes: ["api_key", "oauth2"] },
+      { service: "hackernews", displayName: "Hacker News", authTypes: ["no_auth"] },
+      { service: "slack", displayName: "Slack", authTypes: ["oauth2"] },
+    ];
+    const pickable = configurableProviders(catalog);
+    expect(pickable.map((p) => p.service)).toEqual(["github", "slack"]);
+  });
+
+  it("filters providers by display name and service id, case-insensitively", async () => {
+    const { filterProviders } = await import("./user-page");
+    const catalog = [
+      { service: "github", displayName: "GitHub", authTypes: ["api_key"] },
+      { service: "openai", displayName: "OpenAI", authTypes: ["api_key"] },
+    ];
+    expect(filterProviders(catalog, "git").map((p) => p.service)).toEqual(["github"]);
+    expect(filterProviders(catalog, "OPENAI").map((p) => p.service)).toEqual(["openai"]);
+    expect(filterProviders(catalog, "  ").map((p) => p.service)).toEqual(["github", "openai"]);
+  });
+
+  it("drops the no_auth auth type from the form", async () => {
+    const { UserPanelBody } = await import("./user-page");
+    const markup = renderToStaticMarkup(
+      withI18n(
+        createElement(UserPanelBody, {
+          session: { tenantId: "t1", kind: "oidc_session", email: "u@example.com", displayName: "U" },
+          providers,
+          connections: [],
+          connectionsState: "ready",
+          error: null,
+          onChanged: () => undefined,
+        }),
+      ),
+    );
+    expect(markup).not.toContain("no_auth");
+    // The provider field is now a search picker trigger, not a flat select of the catalog.
+    expect(markup).toContain("Choose provider");
+  });
+});
+
+describe("RunsCard (add-tenant-runs-card)", () => {
+  const session = { tenantId: "t1", kind: "oidc_session", email: "u@example.com", displayName: "U" } as const;
+
+  it("renders collapsed, with a count, below the test-run card", async () => {
+    mockBackend(session, [], []);
+    const { UserPanelBody, RunsCard } = await import("./user-page");
+    const body = renderToStaticMarkup(
+      withI18n(
+        createElement(UserPanelBody, {
+          session,
+          providers,
+          connections: [],
+          connectionsState: "ready",
+          error: null,
+          onChanged: () => undefined,
+        }),
+      ),
+    );
+    expect(body.indexOf("<h2>Test an action</h2>")).toBeLessThan(body.indexOf("user-noauth-count"));
+    expect(body).not.toContain("<details open");
+    const card = renderToStaticMarkup(withI18n(createElement(RunsCard)));
+    expect(card).toContain("Recent runs");
+    expect(card).toContain('<span class="user-noauth-count">0</span>');
+    // Nothing is fetched until the user opens it.
+    expect(card).toContain("Open to load your recent calls.");
   });
 });

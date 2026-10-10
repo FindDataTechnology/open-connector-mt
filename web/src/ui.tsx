@@ -44,6 +44,7 @@ import { RunsPage } from "./runs-page";
 import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
 import { useTenantConfig } from "./user/use-tenant-config";
+import { tenantApi } from "./user/tenant-api";
 import { UserPage } from "./user/user-page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -337,10 +338,26 @@ export function App(): ReactNode {
  * Owns its shell (.user-shell) — never the admin .app-shell grid — and links
  * nowhere into the admin domain (revamp-user-panel).
  */
-function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMode): void }): ReactNode {
+/**
+ * The user panel has no sidebar, so an admin arriving here (from the console
+ * sidebar, or by typing /me) would be stranded. Only a provable admin session
+ * earns the way back — a tenant must never see it (they hit the unlock wall).
+ *
+ * `adminAuthConfigured` is load-bearing: deployments without an admin token
+ * report `authenticated: true` unconditionally.
+ */
+export function showsAdminReturnLink(session: { adminAuthConfigured: boolean; authenticated: boolean }): boolean {
+  return session.adminAuthConfigured && session.authenticated;
+}
+
+export function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMode): void }): ReactNode {
   const t = useTranslate();
   const [theme, setTheme] = useState(props.theme);
   const [providers, setProviders] = useState<{ service: string; displayName: string; authTypes: string[] }[]>([]);
+  // open-connector-mt: an admin who got here from the unlocked console (or by
+  // landing on /me directly) has no way back — AppShell's sidebar is gone in
+  // this shell. Only a provable admin session earns the return link.
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -371,6 +388,16 @@ function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMod
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    tenantApi.adminSession().then((session) => {
+      if (!cancelled) setIsAdmin(showsAdminReturnLink(session));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const applyTheme = (next: ThemeMode): void => {
     setTheme(next);
     props.onThemeChange(next);
@@ -384,6 +411,11 @@ function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMod
           <span>{t("userPanel.brand")}</span>
         </div>
         <div className="console-header-actions">
+          {isAdmin ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/overview">{t("userPanel.backToAdmin")}</Link>
+            </Button>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </Button>

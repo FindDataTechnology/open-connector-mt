@@ -225,3 +225,86 @@
 .user-noauth-group ul {
   margin-top: 6px;
 }
+/* add-user-panel-return-and-picker: provider search picker (plain Dialog). */
+.user-provider-picker {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.user-picker-count {
+  color: var(--muted-foreground, #667);
+  font-size: 0.8rem;
+  margin: 0;
+}
+.user-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 8px;
+}
+.user-picker-row {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.user-picker-name {
+  font-weight: 500;
+}
+.user-picker-service {
+  color: var(--muted-foreground, #667);
+  font-size: 0.8rem;
+}
+.user-picker-oauth {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted-foreground, #667);
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 1.7;
+}
+/* add-tenant-runs-card: recent runs, collapsed troubleshooting view. */
+.user-runs-actions {
+  margin: 6px 0;
+}
+.user-runs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.user-runs-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.user-run-action {
+  font-weight: 500;
+}
+.user-run-meta {
+  color: var(--muted-foreground, #667);
+  font-size: 0.8rem;
+}
+.user-run-error {
+  color: var(--destructive, #c0392b);
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+.user-run-payload pre {
+  max-height: 240px;
+  overflow: auto;
+  background: var(--muted, #f4f5f7);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.78rem;
+  margin: 4px 0 0;
+}

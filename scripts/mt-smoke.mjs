@@ -383,6 +383,20 @@ try {
     "cross-tenant / missing connections share the exact not-found shape (indistinguishable)",
   );
 
+  // A real (successful) execution as alice: the run-log checks below need a
+  // persisted run, and connection_not_found probes never reach the audit write.
+  const executed = await mcp(
+    base,
+    {
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "execute_action", arguments: { actionId, connectionName: "default" } },
+    },
+    patA.token,
+  );
+  ok(executed.status === 200, "alice executes a real action over MCP");
+
   // ── the admin domain stays behind the admin token ──
   // A user PAT governs /mcp and /v1/* only; reaching deployment-global admin
   // config with it would be a privilege escalation.
@@ -449,6 +463,26 @@ try {
     headers: { authorization: `Bearer ${servicePat}`, ...as("alice") },
   });
   ok(adminDenied.status === 403, "service_pat cannot reach the admin domain even with an actor header");
+
+  // ── tenant run logs (add-tenant-runs-card) ──
+  // The MCP calls above (alice's own PAT, plus the service_pat's OBO run as
+  // alice) all landed on alice's tenant; the tenant route must surface them
+  // projected, and bob must see none of them.
+  const aliceRuns = await jsonCall(base, "/api/tenant/runs", { cookies: alice });
+  ok(aliceRuns.status === 200, "alice reads her tenant run log");
+  ok(Array.isArray(aliceRuns.json?.runs) && aliceRuns.json.runs.length > 0, "alice's run log is not empty");
+  const sampleRun = aliceRuns.json.runs[0];
+  ok(
+    sampleRun.runtimeTokenId === undefined && sampleRun.tenantId === undefined && sampleRun.policy === undefined,
+    "the projection drops runtimeTokenId / tenantId / policy",
+  );
+  ok(typeof sampleRun.patName === "string", "the projection carries a PAT-name slot");
+  const bobRuns = await jsonCall(base, "/api/tenant/runs", { cookies: bob });
+  ok(bobRuns.status === 200, "bob reads his own tenant run log");
+  ok(
+    (bobRuns.json?.runs ?? []).every((run) => run.id !== sampleRun.id),
+    "bob's run log never contains alice's runs",
+  );
 
   const revokeService = await fetch(`${base}/api/runtime-tokens/${minted.json.record.id}`, {
     method: "DELETE",

@@ -13,6 +13,7 @@ import {
   nextLogoutState,
   subscribeToOAuthCompletions,
   UnlockView,
+  UserPanelShell,
 } from "./ui";
 
 afterEach(() => {
@@ -312,5 +313,40 @@ describe("loadRuntimeData", () => {
         auth: [{ type: "api_key", fields: [{ key: "apiKey", label: "Provider token" }] }],
       },
     ]);
+  });
+});
+
+describe("UserPanelShell (add-user-panel-return-and-picker)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("earns the return link only for a provable admin session", async () => {
+    const { showsAdminReturnLink } = await import("./ui");
+    // Static rendering does not await effects, so the link's visibility rule is
+    // asserted on the predicate that drives it.
+    expect(showsAdminReturnLink({ adminAuthConfigured: true, authenticated: true })).toBe(true);
+    // Tenant: no admin session.
+    expect(showsAdminReturnLink({ adminAuthConfigured: true, authenticated: false })).toBe(false);
+    // No admin token configured: upstream reports authenticated unconditionally.
+    expect(showsAdminReturnLink({ adminAuthConfigured: false, authenticated: true })).toBe(false);
+    expect(showsAdminReturnLink({ adminAuthConfigured: false, authenticated: false })).toBe(false);
+  });
+
+  it("renders no admin return link before any probe resolves", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => '{"data":[]}' }) as never));
+    const markup = renderToStaticMarkup(
+      createElement(
+        I18nProvider,
+        { i18n: createAppI18n("en") },
+        createElement(
+          MemoryRouter,
+          { initialEntries: ["/me"] },
+          createElement(UserPanelShell, { theme: "dark", onThemeChange: () => undefined }),
+        ),
+      ),
+    );
+    expect(markup).not.toContain("Back to admin console");
+    expect(markup).toContain("user-shell");
   });
 });

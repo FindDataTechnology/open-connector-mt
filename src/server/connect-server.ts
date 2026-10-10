@@ -224,6 +224,7 @@ export class ConnectServer {
               ...input,
               policy,
             }),
+          listRuns: (input) => this.options.actions.listRuns(input),
         },
         policyOf: (requestContext) => this.getPolicySnapshot(requestContext),
         logger: this.options.logger,

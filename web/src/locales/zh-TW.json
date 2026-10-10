@@ -853,7 +853,8 @@
     "brand": "萬星連接器",
     "signInIntro": "在這裡安全託管你的各類 SaaS 連線，並鑄造存取權杖交給 agent 平台使用。",
     "noAuthGroup": "免鑑權資料來源（無需設定，可直接使用）",
-    "patHint": "把權杖貼到 agent 平台（如壹座）的連接器設定中"
+    "patHint": "把權杖貼到 agent 平台（如壹座）的連接器設定中",
+    "backToAdmin": "返回管理台"
   },
   "tenant": {
     "title": "我的連線",
@@ -874,7 +875,12 @@
       "authType": "認證方式",
       "name": "連線名稱",
       "add": "新增連線",
-      "delete": "刪除"
+      "delete": "刪除",
+      "pickProvider": "選擇提供方",
+      "pickProviderHint": "按名稱或服務識別搜尋。",
+      "searchPlaceholder": "搜尋提供方…",
+      "matchCount": "共 {count} 筆符合",
+      "oauthCapable": "支援 OAuth"
     },
     "pats": {
       "title": "存取權杖（PAT）",
@@ -888,6 +894,14 @@
     "testRun": {
       "title": "試跑動作",
       "run": "執行"
+    },
+    "runs": {
+      "title": "最近的呼叫",
+      "empty": "還沒有呼叫記錄。當 agent 使用你的權杖後會出現在這裡。",
+      "hint": "展開以載入最近的呼叫記錄。",
+      "externalToken": "外部權杖",
+      "input": "輸入",
+      "output": "輸出"
     }
   }
 }

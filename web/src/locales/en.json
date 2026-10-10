@@ -853,7 +853,8 @@
     "brand": "Wanxing Connector",
     "signInIntro": "Store your SaaS connections securely and mint access tokens for your agent platforms.",
     "noAuthGroup": "Auth-free data sources (no setup needed, ready to use)",
-    "patHint": "Paste the token into your agent platform's connector settings (e.g. Yizuo)."
+    "patHint": "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
+    "backToAdmin": "Back to admin console"
   },
   "tenant": {
     "title": "My connections",
@@ -874,7 +875,12 @@
       "authType": "Auth type",
       "name": "Connection name",
       "add": "Add connection",
-      "delete": "Delete"
+      "delete": "Delete",
+      "pickProvider": "Choose provider",
+      "pickProviderHint": "Search by name or service id.",
+      "searchPlaceholder": "Search providers…",
+      "matchCount": "{count} matches",
+      "oauthCapable": "OAuth"
     },
     "pats": {
       "title": "Access tokens (PAT)",
@@ -888,6 +894,14 @@
     "testRun": {
       "title": "Test an action",
       "run": "Run"
+    },
+    "runs": {
+      "title": "Recent runs",
+      "empty": "No calls yet. They appear once an agent uses one of your tokens.",
+      "hint": "Open to load your recent calls.",
+      "externalToken": "external token",
+      "input": "Input",
+      "output": "Output"
     }
   }
 }

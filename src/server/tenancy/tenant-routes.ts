@@ -3,6 +3,7 @@ import type { ConnectionService } from "../../connection-service.ts";
 import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
 import type { OAuthFlowService } from "../../oauth/oauth-flow-service.ts";
 import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
+import type { RunLog } from "../storage/runtime-store.ts";
 import type { ITenantStore } from "../storage/tenant-store.ts";
 import type { TenancyConfig } from "./constants.ts";
 import type { TenantAuthHooks } from "./tenant-auth.ts";
@@ -48,6 +49,8 @@ export interface TenantRouteOptions {
       },
       policy: ActionPolicySnapshot,
     ): Promise<unknown>;
+    /** Recent run logs; the tenant route scopes them before they reach the panel. */
+    listRuns(input: { tenantId: string; limit: number }): Promise<{ items: RunLogSource[] }>;
   };
   /** The runtime's merged policy snapshot for the test-run. */
   policyOf(context: Context): Promise<ActionPolicySnapshot>;
@@ -411,10 +414,98 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     return context.json(run);
   });
 
+  // ── Run logs (tenant-scoped, projected) ─────────────────────────────────
+  app.get("/api/tenant/runs", async (context) => {
+    const principal = await requireUser(context, options);
+    if (!principal) return jsonError(context, 401, "unauthorized", "Sign in required.");
+    // Admin principals keep the cross-tenant view upstream gives them; everyone
+    // else is pinned to their own tenant, which is also what runWithTenant set
+    // as the store default — so an OBO run lands in the actor's tenant.
+    const tenantId = principal.kind === "admin" ? currentStoreTenant() : principal.tenantId;
+    if (!tenantId) return jsonError(context, 403, "forbidden", "Tenant scope unavailable.");
+    const limit = clampRunLimit(context.req.query("limit"));
+    const page = await options.actions.listRuns({ tenantId, limit });
+    const patNames = await mapPatNames(options, tenantId);
+    return context.json({
+      runs: page.items.map((run) => projectRun(run, patNames)),
+    });
+  });
+
   // PLATFORM_TENANT_ID is referenced for OAuth client config resolution order
   // (tenant row wins, platform row is the fallback); kept imported so the
   // resolution contract is visible next to the routes that rely on it.
   void PLATFORM_TENANT_ID;
+}
+
+/** What the tenant panel is allowed to learn about a run — nothing internal. */
+export interface TenantRunView {
+  id: string;
+  startedAt: string;
+  durationMs: number;
+  ok: boolean;
+  service?: string;
+  actionId?: string;
+  caller?: string;
+  connectionName?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  inputSummary?: unknown;
+  outputSummary?: unknown;
+  patName: string;
+}
+
+/** The subset of RunLog the tenant route reads. */
+export type RunLogSource = RunLog;
+
+export function projectRun(run: RunLogSource, patNames: Map<string, string>): TenantRunView {
+  const startedAt = run.startedAt;
+  const completedAt = run.completedAt;
+  const durationMs =
+    startedAt && completedAt
+      ? Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime())
+      : 0;
+  return {
+    id: run.id,
+    startedAt,
+    durationMs,
+    ok: run.ok,
+    service: run.service,
+    actionId: run.actionId,
+    caller: run.caller,
+    connectionName: run.connectionProfile?.displayName ?? run.connectionId,
+    errorCode: run.errorCode,
+    errorMessage: run.errorMessage,
+    inputSummary: run.inputSummary,
+    outputSummary: run.outputSummary,
+    patName: patNames.get(run.runtimeTokenId ?? "") ?? "",
+  };
+}
+
+/**
+ * PAT id → name for this tenant. OBO runs carry the *service's* token, which is
+ * never in this tenant's list — those fall back to the neutral placeholder the
+ * UI fills in, so the panel can't distinguish (or leak) why a token is unknown.
+ */
+async function mapPatNames(options: TenantRouteOptions, tenantId: string): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  try {
+    const tokens = await options.runtimeTokens.listTokens();
+    for (const token of tokens) {
+      const record = token as { id?: string; name?: string; kind?: string; tenantId?: string };
+      if (!record.id || !record.name) continue;
+      if (record.kind === "user_pat" && record.tenantId && record.tenantId !== tenantId) continue;
+      names.set(record.id, record.name);
+    }
+  } catch {
+    // Unmapped tokens just render the placeholder.
+  }
+  return names;
+}
+
+function clampRunLimit(raw: string | undefined): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed)) return 20;
+  return Math.min(Math.max(parsed, 1), 20);
 }
 
 function emptyPolicy() {

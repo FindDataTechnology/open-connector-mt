@@ -853,7 +853,8 @@
     "brand": "Connecteur Wanxing",
     "signInIntro": "Stockez vos connexions SaaS en toute sécurité et émettez des jetons d'accès pour vos plateformes d'agents.",
     "noAuthGroup": "Sources de données sans authentification (aucune configuration requise)",
-    "patHint": "Collez le jeton dans les paramètres du connecteur de votre plateforme d'agents (par ex. Yizuo)."
+    "patHint": "Collez le jeton dans les paramètres du connecteur de votre plateforme d'agents (par ex. Yizuo).",
+    "backToAdmin": "Retour au panneau d'administration"
   },
   "tenant": {
     "title": "Mes connexions",
@@ -874,7 +875,12 @@
       "authType": "Type d'authentification",
       "name": "Nom de la connexion",
       "add": "Ajouter une connexion",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "pickProvider": "Choisir un fournisseur",
+      "pickProviderHint": "Recherchez par nom ou identifiant de service.",
+      "searchPlaceholder": "Rechercher des fournisseurs…",
+      "matchCount": "{count} résultats",
+      "oauthCapable": "OAuth"
     },
     "pats": {
       "title": "Jetons d'accès (PAT)",
@@ -888,6 +894,14 @@
     "testRun": {
       "title": "Tester une action",
       "run": "Exécuter"
+    },
+    "runs": {
+      "title": "Exécutions récentes",
+      "empty": "Aucun appel pour l'instant. Ils apparaîtront dès qu'un agent utilisera l'un de vos jetons.",
+      "hint": "Ouvrez pour charger vos appels récents.",
+      "externalToken": "jeton externe",
+      "input": "Entrée",
+      "output": "Sortie"
     }
   }
 }

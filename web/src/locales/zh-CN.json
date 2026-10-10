@@ -853,7 +853,8 @@
     "brand": "萬星连接器",
     "signInIntro": "在这里安全托管你的各类 SaaS 连接，并铸造访问令牌交给 agent 平台使用。",
     "noAuthGroup": "免鉴权数据源（无需配置，直接可用）",
-    "patHint": "把令牌粘贴到 agent 平台（如壹座）的连接器设置中"
+    "patHint": "把令牌粘贴到 agent 平台（如壹座）的连接器设置中",
+    "backToAdmin": "返回管理台"
   },
   "tenant": {
     "title": "我的连接",
@@ -874,7 +875,12 @@
       "authType": "认证方式",
       "name": "连接名",
       "add": "添加连接",
-      "delete": "删除"
+      "delete": "删除",
+      "pickProvider": "选择提供方",
+      "pickProviderHint": "按名称或服务标识搜索。",
+      "searchPlaceholder": "搜索提供方…",
+      "matchCount": "共 {count} 条匹配",
+      "oauthCapable": "支持 OAuth"
     },
     "pats": {
       "title": "访问令牌（PAT）",
@@ -888,6 +894,14 @@
     "testRun": {
       "title": "试跑动作",
       "run": "运行"
+    },
+    "runs": {
+      "title": "最近的调用",
+      "empty": "还没有调用记录。当 agent 使用你的令牌后会出现在这里。",
+      "hint": "展开以加载最近的调用记录。",
+      "externalToken": "外部令牌",
+      "input": "输入",
+      "output": "输出"
     }
   }
 }
