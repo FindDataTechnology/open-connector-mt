@@ -3,6 +3,8 @@ name: Publish TCR Image
 # open-connector-mt: build the upstream docker/Dockerfile and publish to
 # Tencent TCR (hkccr.ccs.tencentyun.com/yizuo/open-connector-mt) so the
 # fd-prod GitOps line (fd-infra-deploy, ArgoCD) can consume sha- tags.
+# The hk->ccr (Guangzhou) leg belongs to the cheap-3 tcr-relay (cron, repos.conf
+# lists yizuo/open-connector-mt) — NEVER push ccr directly from this US runner.
 #
 # Requires repository secrets TCR_USERNAME / TCR_PASSWORD (same setup as the
 # wanxing-* repositories). NOTE: runs are currently blocked by the org-level
@@ -37,13 +39,6 @@ jobs:
           username: ${{ secrets.TCR_USERNAME }}
           password: ${{ secrets.TCR_PASSWORD }}
 
-      - name: Login to TCR (ccr, direct — bypasses the hk→relay sync)
-        uses: docker/login-action@v3
-        with:
-          registry: ccr.ccs.tencentyun.com
-          username: ${{ secrets.TCR_USERNAME }}
-          password: ${{ secrets.TCR_PASSWORD }}
-
       - name: Build and push (hk)
         uses: docker/build-push-action@v6
         with:
@@ -56,14 +51,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Push same tags to ccr (Guangzhou, cluster-facing)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          tags: |
-            ccr.ccs.tencentyun.com/yizuo/open-connector-mt:sha-${{ steps.meta.outputs.short }}
-            ccr.ccs.tencentyun.com/yizuo/open-connector-mt:main
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
