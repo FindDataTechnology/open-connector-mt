@@ -18,4 +18,5 @@
 
 - [x] 4.1 全量 vitest 绿（服务端 + web，含既有 tenant-routes / user-page 测试无回归）；构建通过。
 - [x] 4.2 端到端实证（`scripts/mt-smoke.mjs` 扩展，真实服务器 + 真 MCP 调用）：alice 的 runs 非空且只含投影字段、bob 的 runs 不含 alice 条目、admin 域同一 run 仍带 runtimeTokenId/tenantId/policy 原文（投影对照实证）。**SMOKE PASS**。
-- [ ] 4.3 用户浏览器一眼验收（人工，需真账号）：/me 运行记录卡展开可见真实调用（时间/耗时/成败/actionId/PAT 名），失败调用 errorCode 可见。
+- [x] 4.3 部署与线上实证：scs001 快照 d4a4255 → relay → GitOps c9f258f → ArgoCD → rollout 成功；in-pod bundle 含「Recent runs」标记；线上 `/api/tenant/runs` 匿名 401。
+- [ ] 4.4 用户浏览器一眼验收（人工，需真账号）：/me 运行记录卡展开可见真实调用（时间/耗时/成败/actionId/PAT 名），失败调用 errorCode 可见。

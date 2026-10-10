@@ -19,3 +19,8 @@
 
 - [x] 4.1 全量 vitest 绿（含既有 user-page 测试无回归）；`web/` 构建通过。
 - [ ] 4.2 用户浏览器一眼验收（人工）：管理台解锁后从侧边栏点「我的连接」→ /me 顶栏出现「返回管理台」→ 点击回到已解锁管理台；普通租户（无 admin cookie 浏览器）顶栏无该链接；新增表单搜索选定 provider 走通 API key 新增。
+
+## 5. 部署
+
+- [x] 5.1 出片与滚动：scs001 快照 `d4a4255`（真 sha 5faabe3 content）→ GHA Publish TCR Image 2m27s → cheap-3 relay 回灌 `OK yizuo/open-connector-mt:sha-d4a4255` → skopeo 实证 ccr digest `sha256:a4b6b90b` → GitOps `c9f258f` 推 gitee → ArgoCD 同步 → rollout 成功（pod `69c9854c5d-g5dmx`）。
+- [x] 5.2 in-pod 实证：`/app/dist/web/assets/index-BYDOtF7g.js` 含四标记（Back to admin console / Choose provider / Recent runs / Wanxing Connector）；线上 health 200、`/me` 200、`/api/tenant/runs` 匿名 401（鉴权门生效）。
