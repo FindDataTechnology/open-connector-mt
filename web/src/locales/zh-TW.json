@@ -849,6 +849,12 @@
     },
     "retry": "重新檢查"
   },
+  "userPanel": {
+    "brand": "萬星連接器",
+    "signInIntro": "在這裡安全託管你的各類 SaaS 連線，並鑄造存取權杖交給 agent 平台使用。",
+    "noAuthGroup": "免鑑權資料來源（無需設定，可直接使用）",
+    "patHint": "把權杖貼到 agent 平台（如壹座）的連接器設定中"
+  },
   "tenant": {
     "title": "我的連線",
     "signInPrompt": "使用你的帳號登入後管理連線。",

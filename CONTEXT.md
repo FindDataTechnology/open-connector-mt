@@ -43,3 +43,11 @@ _Avoid_: 全局 app（跨租户共享的是配置不是连接）
 **动作（action）**:
 provider 目录中预定义的一次可执行调用（10000+ 个），执行时代入连接凭证。目录归上游，本 fork 不改不译。
 _Avoid_: 工具（tool 仅指 MCP 面的 5 个元工具）
+
+**用户面板（user panel）**:
+`TENANCY=oidc` 下 console 挂载于 `/me` 的终用户面：本人连接管理、用户 PAT 铸造与动作试跑。与管理台（admin token 后的上游面孔）相对，两者共用 console 应用但互不越界。
+_Avoid_: 控制台（与 admin 面歧义）、「我的连接」页面（路由文案非概念名）
+
+**虚拟连接（virtual connection）**:
+免鉴权（no_auth）provider 向每个租户自动投影的可用条目，无需配置、不可真正删除（断开即重建）；用户存入同名连接后为其让位。
+_Avoid_: 免费连接、预置连接（非部署者预置，是目录属性投影）

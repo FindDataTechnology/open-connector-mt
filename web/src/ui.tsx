@@ -333,8 +333,9 @@ export function App(): ReactNode {
  * Standalone shell for the tenant user panel (open-connector-mt).
  *
  * Deliberately independent of the admin dashboard's data load: the panel is
- * reachable without an admin token, so it fetches the provider list itself and
- * offers a link back to the admin console.
+ * reachable without an admin token, so it fetches the provider list itself.
+ * Owns its shell (.user-shell) — never the admin .app-shell grid — and links
+ * nowhere into the admin domain (revamp-user-panel).
  */
 function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMode): void }): ReactNode {
   const t = useTranslate();
@@ -376,16 +377,13 @@ function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMod
   };
 
   return (
-    <div className="app-shell">
+    <div className="user-shell">
       <header className="console-header">
         <div className="console-brand">
           <img src={oomolConnectLogoUrl} alt="" width={24} height={24} />
-          <span>{t("brand.subtitle")}</span>
+          <span>{t("userPanel.brand")}</span>
         </div>
         <div className="console-header-actions">
-          <a className="console-admin-link" href="/overview">
-            {t("nav.overview")}
-          </a>
           <Button variant="ghost" size="sm" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </Button>

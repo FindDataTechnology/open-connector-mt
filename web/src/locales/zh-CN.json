@@ -849,6 +849,12 @@
     },
     "retry": "重新检查"
   },
+  "userPanel": {
+    "brand": "萬星连接器",
+    "signInIntro": "在这里安全托管你的各类 SaaS 连接，并铸造访问令牌交给 agent 平台使用。",
+    "noAuthGroup": "免鉴权数据源（无需配置，直接可用）",
+    "patHint": "把令牌粘贴到 agent 平台（如壹座）的连接器设置中"
+  },
   "tenant": {
     "title": "我的连接",
     "signInPrompt": "使用你的账号登录后管理连接。",

@@ -40,6 +40,7 @@ const locales = {
     brand: { console: "Open Connector" },
     nav: { overview: "Overview", me: "My connections" },
     shell: { logout: "Log out" },
+    userPanel: { brand: "Wanxing Connector" },
     tenant: {},
   },
 } as never;
@@ -69,6 +70,12 @@ describe("console tenant routing (open-connector-mt)", () => {
     const markup = renderApp("/me");
     expect(markup).toContain("user-shell-main");
     expect(markup).not.toContain("unlock-screen");
+    // revamp-user-panel: own shell (never the admin grid), Wanxing brand, no dead admin link.
+    expect(markup).toContain('class="user-shell"');
+    expect(markup).not.toContain("app-shell");
+    expect(markup).toContain("Wanxing Connector");
+    expect(markup).not.toContain('href="/overview"');
+    expect(markup).not.toContain("Local runtime console");
   });
 
   it("keeps the admin unlock wall on other routes", () => {

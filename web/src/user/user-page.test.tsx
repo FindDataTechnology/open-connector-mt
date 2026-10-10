@@ -35,6 +35,12 @@ const locales = {
       apiUnavailable: "unavailable",
       runtimeReady: "ready",
     },
+    userPanel: {
+      brand: "Wanxing Connector",
+      signInIntro: "Store your SaaS connections securely and mint access tokens for your agent platforms.",
+      noAuthGroup: "Auth-free data sources (no setup needed, ready to use)",
+      patHint: "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
+    },
     tenant: {
       title: "My connections",
       signInPrompt: "Sign in with your account to manage your connections.",
@@ -54,6 +60,7 @@ const locales = {
         authType: "Auth type",
         name: "Connection name",
         add: "Add connection",
+        delete: "Delete",
       },
       pats: {
         title: "Access tokens (PAT)",
@@ -114,5 +121,61 @@ describe("UserPage", () => {
     await apiGet("/api/tenant/session").catch(() => undefined);
     const paths = mockedGet.mock.calls.map((call) => call[0]);
     expect(paths.every((p) => String(p).startsWith("/api/tenant/"))).toBe(true);
+  });
+});
+
+describe("SignInCard (revamp-user-panel)", () => {
+  it("renders the centered hero: brand, purpose line, single sign-in entry", async () => {
+    const { SignInCard } = await import("./user-page");
+    const markup = renderToStaticMarkup(withI18n(createElement(SignInCard)));
+    expect(markup).toContain("user-hero-card");
+    expect(markup).toContain("Wanxing Connector");
+    expect(markup).toContain("Store your SaaS connections securely");
+    expect(markup).toContain("Sign in");
+  });
+});
+
+describe("UserPanelBody (revamp-user-panel)", () => {
+  const session = { tenantId: "t1", kind: "oidc_session", email: "u@example.com", displayName: "U" } as const;
+
+  async function renderBody(connections: unknown[]): Promise<string> {
+    const { UserPanelBody } = await import("./user-page");
+    return renderToStaticMarkup(
+      withI18n(
+        createElement(UserPanelBody, {
+          session,
+          providers,
+          connections: connections as never,
+          connectionsState: "ready",
+          error: null,
+          onChanged: () => undefined,
+        }),
+      ),
+    );
+  }
+
+  it("pins the PAT card above the connections card with the paste hint", async () => {
+    const markup = await renderBody([
+      { service: "github", connectionName: "default", configured: true, authType: "api_key" },
+    ]);
+    expect(markup.indexOf("Access tokens (PAT)")).toBeLessThan(markup.indexOf("<h2>Connections</h2>"));
+    // The apostrophe is HTML-escaped in static markup; assert around it.
+    expect(markup).toContain("Paste the token into your agent platform");
+  });
+
+  it("groups virtual no-auth connections collapsed, without delete; own rows keep delete", async () => {
+    const markup = await renderBody([
+      { service: "github", connectionName: "default", configured: true, authType: "api_key", virtual: false },
+      { service: "hackernews", connectionName: "default", configured: true, authType: "no_auth", virtual: true },
+      { service: "crossref", connectionName: "default", configured: true, authType: "no_auth", virtual: true },
+    ]);
+    // The virtual group renders collapsed (details without open) with a count badge.
+    expect(markup).toContain("user-noauth-group");
+    expect(markup).not.toContain("<details open");
+    expect(markup).toContain('<span class="user-noauth-count">2</span>');
+    // Own rows keep exactly one delete; virtual rows render none.
+    expect(markup).toContain("github / default");
+    expect(markup).toContain("hackernews / default");
+    expect(markup.match(/Delete/g)).toHaveLength(1);
   });
 });

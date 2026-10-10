@@ -849,6 +849,12 @@
     },
     "retry": "Vérifier à nouveau"
   },
+  "userPanel": {
+    "brand": "Connecteur Wanxing",
+    "signInIntro": "Stockez vos connexions SaaS en toute sécurité et émettez des jetons d'accès pour vos plateformes d'agents.",
+    "noAuthGroup": "Sources de données sans authentification (aucune configuration requise)",
+    "patHint": "Collez le jeton dans les paramètres du connecteur de votre plateforme d'agents (par ex. Yizuo)."
+  },
   "tenant": {
     "title": "Mes connexions",
     "signInPrompt": "Connectez-vous pour gérer vos connexions.",

@@ -156,3 +156,72 @@
 .console-admin-link:hover {
   text-decoration: underline;
 }
+
+/* ── open-connector-mt: standalone user-shell (/me) — revamp-user-panel ── */
+.user-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+.user-shell .console-header {
+  width: min(880px, 100% - 32px);
+  margin: 0 auto;
+}
+.user-hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  max-width: 460px;
+  padding: 40px 32px;
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 12px;
+  background: var(--card, transparent);
+}
+.user-hero-card .console-brand {
+  font-size: 1.15rem;
+}
+.user-hero-intro {
+  color: var(--muted-foreground, #667);
+  font-size: 0.92rem;
+  max-width: 34ch;
+  margin: 0;
+}
+.user-pat-hint {
+  color: var(--muted-foreground, #667);
+  font-size: 0.85rem;
+  margin: 0;
+}
+.user-noauth-group {
+  border-top: 1px dashed var(--border, #e2e4e9);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+.user-noauth-group summary {
+  cursor: pointer;
+  color: var(--muted-foreground, #667);
+  font-size: 0.85rem;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.user-noauth-group summary::before {
+  content: "▸";
+  transition: transform 0.15s ease;
+}
+.user-noauth-group[open] summary::before {
+  transform: rotate(90deg);
+}
+.user-noauth-count {
+  font-size: 0.75rem;
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: 999px;
+  padding: 0 8px;
+  line-height: 1.6;
+}
+.user-noauth-group ul {
+  margin-top: 6px;
+}

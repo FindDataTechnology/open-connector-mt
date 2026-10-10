@@ -849,6 +849,12 @@
     },
     "retry": "Check again"
   },
+  "userPanel": {
+    "brand": "Wanxing Connector",
+    "signInIntro": "Store your SaaS connections securely and mint access tokens for your agent platforms.",
+    "noAuthGroup": "Auth-free data sources (no setup needed, ready to use)",
+    "patHint": "Paste the token into your agent platform's connector settings (e.g. Yizuo)."
+  },
   "tenant": {
     "title": "My connections",
     "signInPrompt": "Sign in with your account to manage your connections.",

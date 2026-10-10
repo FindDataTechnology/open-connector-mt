@@ -24,6 +24,8 @@ export interface TenantConnection {
   configured: boolean;
   authType?: string;
   status?: string;
+  /** true for the auth-free catalog projection every tenant sees (deleting is a no-op). */
+  virtual?: boolean;
 }
 
 export interface TenantPat {

@@ -1,9 +1,10 @@
 import type { TenantConnection, TenantPat, TenantSession } from "./tenant-api";
 /**
  * User panel (open-connector-mt): the tenant-facing face of the console —
- * my connections (paste / OAuth / delete), my PATs (mint with one-time
- * display / revoke), and an action test-run. Admin keeps the upstream
- * console; this page is mounted only in TENANCY=oidc mode.
+ * my connections (paste / OAuth / delete, with auth-free virtual sources
+ * grouped and collapsed), my PATs (mint with one-time display / revoke,
+ * pinned above the connections), and an action test-run. Admin keeps the
+ * upstream console; this page is mounted only in TENANCY=oidc mode.
  */
 import type { ReactNode } from "react";
 
@@ -20,10 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type LoadState = "loading" | "ready" | "error";
 
-export function UserPage(props: {
-  providers: { service: string; displayName: string; authTypes: string[] }[];
-}): ReactNode {
-  const t = useTranslate();
+type ProviderOption = { service: string; displayName: string; authTypes: string[] };
+
+export function UserPage(props: { providers: ProviderOption[] }): ReactNode {
   const [session, setSession] = useState<TenantSession | null>(null);
   const [sessionState, setSessionState] = useState<LoadState>("loading");
   const [connections, setConnections] = useState<TenantConnection[]>([]);
@@ -64,15 +64,49 @@ export function UserPage(props: {
   if (!session) {
     return (
       <Centered>
-        <div className="user-signin">
-          <p>{t("tenant.signInPrompt")}</p>
-          <Button onClick={() => window.location.assign("/api/tenant/oidc/authorize")}>
-            <KeyRound size={15} /> {t("tenant.signIn")}
-          </Button>
-        </div>
+        <SignInCard />
       </Centered>
     );
   }
+
+  return (
+    <UserPanelBody
+      session={session}
+      providers={props.providers}
+      connections={connections}
+      connectionsState={connectionsState}
+      error={error}
+      onChanged={refreshConnections}
+    />
+  );
+}
+
+/** Pre-login hero: brand + one-line purpose + the single sign-in entry. */
+export function SignInCard(): ReactNode {
+  const t = useTranslate();
+  return (
+    <div className="user-hero-card">
+      <div className="console-brand">{t("userPanel.brand")}</div>
+      <p className="user-hero-intro">{t("userPanel.signInIntro")}</p>
+      <Button onClick={() => window.location.assign("/api/tenant/oidc/authorize")}>
+        <KeyRound size={15} /> {t("tenant.signIn")}
+      </Button>
+    </div>
+  );
+}
+
+/** Signed-in layout: PATs first (the only cross-platform output), then connections, then test-run. */
+export function UserPanelBody(props: {
+  session: TenantSession;
+  providers: ProviderOption[];
+  connections: TenantConnection[];
+  connectionsState: LoadState;
+  error: string | null;
+  onChanged(): void;
+}): ReactNode {
+  const t = useTranslate();
+  const own = props.connections.filter((c) => !c.virtual);
+  const virtual = props.connections.filter((c) => c.virtual);
 
   return (
     <div className="user-page">
@@ -80,13 +114,13 @@ export function UserPage(props: {
         <div>
           <h1>{t("tenant.title")}</h1>
           <p className="user-page-subtitle">
-            {session.displayName || session.email || session.tenantId}
+            {props.session.displayName || props.session.email || props.session.tenantId}
             {" · "}
-            {t("tenant.kind." + session.kind)}
+            {t("tenant.kind." + props.session.kind)}
           </p>
         </div>
         <div className="user-page-actions">
-          <Button variant="outline" size="sm" onClick={refreshConnections}>
+          <Button variant="outline" size="sm" onClick={props.onChanged}>
             <RefreshCw size={15} /> {t("common.refresh")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => tenantApi.logout().then(() => window.location.reload())}>
@@ -94,23 +128,25 @@ export function UserPage(props: {
           </Button>
         </div>
       </header>
-      {error ? <InlineError message={error} /> : null}
+      {props.error ? <InlineError message={props.error} /> : null}
 
+      <PatsCard />
       <ConnectionsCard
         providers={props.providers}
-        connections={connections}
-        state={connectionsState}
-        onChanged={refreshConnections}
+        own={own}
+        virtual={virtual}
+        state={props.connectionsState}
+        onChanged={props.onChanged}
       />
-      <PatsCard />
-      <TestRunCard connectionNames={connections.map((c) => c.connectionName ?? "default")} />
+      <TestRunCard connectionNames={[...new Set(props.connections.map((c) => c.connectionName ?? "default"))]} />
     </div>
   );
 }
 
 function ConnectionsCard(props: {
-  providers: { service: string; displayName: string; authTypes: string[] }[];
-  connections: TenantConnection[];
+  providers: ProviderOption[];
+  own: TenantConnection[];
+  virtual: TenantConnection[];
   state: LoadState;
   onChanged: () => void;
 }): ReactNode {
@@ -169,32 +205,59 @@ function ConnectionsCard(props: {
       <h2>{t("tenant.connections.title")}</h2>
       {props.state === "loading" ? (
         <Loader2 className="spin" size={18} />
-      ) : props.connections.length === 0 ? (
-        <EmptyState title={t("tenant.connections.title")} description={t("tenant.connections.empty")} />
       ) : (
-        <ul className="user-connection-list">
-          {props.connections.map((c) => (
-            <li key={`${c.service}:${c.connectionName}`}>
-              <StatusDot ok={c.authType !== "oauth2" || c.status !== "reauth_required"} />
-              <span className="user-connection-name">
-                {c.service} / {c.connectionName}
-              </span>
-              <Badge tone={c.authType === "oauth2" && c.status === "reauth_required" ? "warning" : "success"}>
-                {c.authType === "oauth2" && c.status === "reauth_required"
-                  ? t("tenant.connections.reauth")
-                  : c.authType}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => remove(c.service, c.connectionName ?? "default")}
-              >
-                <Trash2 size={14} /> {t("tenant.connections.delete")}
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {props.own.length === 0 ? (
+            <EmptyState title={t("tenant.connections.title")} description={t("tenant.connections.empty")} />
+          ) : (
+            <ul className="user-connection-list">
+              {props.own.map((c) => (
+                <li key={`${c.service}:${c.connectionName}`}>
+                  <StatusDot ok={c.authType !== "oauth2" || c.status !== "reauth_required"} />
+                  <span className="user-connection-name">
+                    {c.service} / {c.connectionName}
+                  </span>
+                  <Badge tone={c.authType === "oauth2" && c.status === "reauth_required" ? "warning" : "success"}>
+                    {c.authType === "oauth2" && c.status === "reauth_required"
+                      ? t("tenant.connections.reauth")
+                      : c.authType}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => remove(c.service, c.connectionName ?? "default")}
+                  >
+                    <Trash2 size={14} /> {t("tenant.connections.delete")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {props.virtual.length > 0 ? (
+            <details className="user-noauth-group">
+              <summary>
+                {t("userPanel.noAuthGroup")}
+                <span className="user-noauth-count">{props.virtual.length}</span>
+              </summary>
+              <ul className="user-connection-list">
+                {props.virtual.map((c) => (
+                  <li key={`${c.service}:${c.connectionName}`}>
+                    <StatusDot ok={c.authType !== "oauth2" || c.status !== "reauth_required"} />
+                    <span className="user-connection-name">
+                      {c.service} / {c.connectionName}
+                    </span>
+                    <Badge tone={c.authType === "oauth2" && c.status === "reauth_required" ? "warning" : "success"}>
+                      {c.authType === "oauth2" && c.status === "reauth_required"
+                        ? t("tenant.connections.reauth")
+                        : c.authType}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </>
       )}
       {formError ? <InlineError message={formError} /> : null}
       <div className="user-connection-form">
@@ -289,6 +352,7 @@ function PatsCard(): ReactNode {
   return (
     <section className="user-card">
       <h2>{t("tenant.pats.title")}</h2>
+      <p className="user-pat-hint">{t("userPanel.patHint")}</p>
       {minted ? (
         <div className="user-pat-minted">
           <p>{t("tenant.pats.copyNow")}</p>
