@@ -334,7 +334,10 @@ describe("UserPanelShell (add-user-panel-return-and-picker)", () => {
   });
 
   it("renders no admin return link before any probe resolves", () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => '{"data":[]}' }) as never));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, text: async () => '{"data":[]}' }) as never),
+    );
     const markup = renderToStaticMarkup(
       createElement(
         I18nProvider,

@@ -96,8 +96,7 @@ export const tenantApi = {
   pats: () => apiGet<{ pats: TenantPat[] }>("/api/tenant/pats"),
   mintPat: (name: string) => apiPost<MintedPat>("/api/tenant/pats", { name }),
   revokePat: (id: string) => apiDelete<{ id: string; revoked: boolean }>(`/api/tenant/pats/${encodeURIComponent(id)}`),
-  runs: (limit?: number) =>
-    apiGet<{ runs: TenantRun[] }>(`/api/tenant/runs${limit ? `?limit=${limit}` : ""}`),
+  runs: (limit?: number) => apiGet<{ runs: TenantRun[] }>(`/api/tenant/runs${limit ? `?limit=${limit}` : ""}`),
   testAction: (input: { actionId: string; input?: unknown; connectionName?: string }) =>
     apiPost<{ ok?: boolean; output?: unknown; errorCode?: string; errorMessage?: string }>(
       "/api/tenant/actions/test",
