@@ -2,8 +2,8 @@ import type { CatalogStore } from "../../catalog-store.ts";
 import type { ConnectionService } from "../../connection-service.ts";
 import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
 import type { OAuthFlowService } from "../../oauth/oauth-flow-service.ts";
-import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import type { RunLog } from "../storage/runtime-store.ts";
+import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
 import type { ITenantStore } from "../storage/tenant-store.ts";
 import type { TenancyConfig } from "./constants.ts";
 import type { TenantAuthHooks } from "./tenant-auth.ts";
@@ -101,6 +101,41 @@ function readB64urlJson<T>(value: string): T {
 
 export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): void {
   const { hooks, config } = options;
+
+  // ── Cross-mint CORS helpers (add-connector-account-picker) ──────────────
+  // Exact-match origin allowlist (OOMOL_CONNECT_CROSS_MINT_ORIGINS). Only an
+  // allowlisted Origin gets CORS response headers — a non-allowlisted caller
+  // gets 403 with no ACAO header, so the browser blocks the read. Every
+  // response carries Vary: Origin so caches never serve one origin's CORS
+  // verdict to another.
+  const crossMintAllowed = (origin: string | undefined): origin is string =>
+    !!origin && (config.crossMintOrigins ?? []).includes(origin.replace(/\/+$/, ""));
+
+  const applyCrossMintCors = (context: Context, origin: string): void => {
+    context.header("Access-Control-Allow-Origin", origin);
+    context.header("Access-Control-Allow-Credentials", "true");
+    context.header("Vary", "Origin");
+  };
+
+  // D8: when the deployment turns on cross-site session cookies, every
+  // cookie-carrying mutating /api/tenant/* request must present an Origin that
+  // is same-origin or cross-mint-allowlisted — SameSite=None would otherwise
+  // let attacker pages blind-POST/DELETE with the victim's cookie. Browsers
+  // always send Origin on non-GET/HEAD, so enforcement keys on the session
+  // cookie being present: bearer-only callers (PAT/admin, e.g. the platform
+  // backend revoking a PAT) carry no cookie and are never blocked.
+  if (config.crossSiteCookie ?? false) {
+    app.use("/api/tenant/*", async (context, next) => {
+      if (["GET", "HEAD", "OPTIONS"].includes(context.req.method)) return next();
+      const cookieName = readSessionCookieName();
+      const hasSessionCookie = new RegExp(`(?:^|;\\s*)${cookieName}=`).test(context.req.header("cookie") ?? "");
+      if (!hasSessionCookie) return next();
+      const origin = context.req.header("origin");
+      const publicOrigin = options.publicOrigin?.replace(/\/+$/, "");
+      if (origin && (origin.replace(/\/+$/, "") === publicOrigin || crossMintAllowed(origin))) return next();
+      return jsonError(context, 403, "origin_not_allowed", "Mutating tenant requests require a known origin.");
+    });
+  }
 
   // Deployment facts the console needs before login. No secrets.
   app.get("/api/tenant/config", (context) =>
@@ -395,6 +430,62 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     return context.json({ id, revoked: true });
   });
 
+  // ── Cross-mint (add-connector-account-picker) ───────────────────────────
+  // A companion platform (壹座) mints a fresh PAT on behalf of a signed-in
+  // user, so the user never copies a token by hand. Mint-only: no listing, no
+  // reading back existing tokens, no mutation of anything but the new PAT.
+  // Routes exist only when the deployment configured an origin allowlist.
+  if ((config.crossMintOrigins ?? []).length > 0) {
+    const crossMintPreflight = (context: Context): Response => {
+      const origin = context.req.header("origin");
+      if (!crossMintAllowed(origin)) {
+        return jsonError(context, 403, "origin_not_allowed", "Origin is not allowed to cross-mint.");
+      }
+      applyCrossMintCors(context, origin);
+      context.header("Access-Control-Allow-Methods", "GET, POST");
+      context.header("Access-Control-Allow-Headers", "content-type");
+      return context.body(null, 204);
+    };
+
+    app.options("/api/tenant/cross-mint/probe", crossMintPreflight);
+    app.options("/api/tenant/cross-mint", crossMintPreflight);
+
+    app.get("/api/tenant/cross-mint/probe", async (context) => {
+      const origin = context.req.header("origin");
+      if (!crossMintAllowed(origin)) {
+        return jsonError(context, 403, "origin_not_allowed", "Origin is not allowed to cross-mint.");
+      }
+      applyCrossMintCors(context, origin);
+      const principal = await requireUser(context, options);
+      if (!principal?.identityId) return jsonError(context, 401, "unauthorized", "Not signed in.");
+      const identity = await options.tenants.getIdentityById(principal.identityId);
+      if (!identity) return jsonError(context, 404, "identity_not_found", "Identity not found.");
+      // The caller's own login identity — same facts /me shows, no secrets.
+      return context.json({ email: identity.email ?? null, displayName: identity.displayName ?? null });
+    });
+
+    app.post("/api/tenant/cross-mint", async (context) => {
+      const origin = context.req.header("origin");
+      if (!crossMintAllowed(origin)) {
+        return jsonError(context, 403, "origin_not_allowed", "Origin is not allowed to cross-mint.");
+      }
+      applyCrossMintCors(context, origin);
+      const principal = await requireUser(context, options);
+      if (!principal?.identityId) return jsonError(context, 401, "unauthorized", "Not signed in.");
+      const identity = await options.tenants.getIdentityById(principal.identityId);
+      if (!identity) return jsonError(context, 404, "identity_not_found", "Identity not found.");
+      const body = (await context.req.json().catch(() => ({}))) as { name?: string };
+      const name = body.name?.trim() || "cross-mint";
+      const created = await options.runtimeTokens.createToken(name, emptyPolicy(), {
+        kind: "user_pat",
+        tenantId: identity.tenantId,
+      });
+      // The plaintext is shown exactly once, in this response. Nothing about
+      // the caller's existing tokens comes back — mint-only.
+      return context.json({ token: created.token, id: created.record.id, name: created.record.name });
+    });
+  }
+
   // ── Action test-run (same runner as the runtime API) ────────────────────
   app.post("/api/tenant/actions/test", async (context) => {
     const body = (await context.req.json().catch(() => undefined)) as
@@ -461,9 +552,7 @@ export function projectRun(run: RunLogSource, patNames: Map<string, string>): Te
   const startedAt = run.startedAt;
   const completedAt = run.completedAt;
   const durationMs =
-    startedAt && completedAt
-      ? Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime())
-      : 0;
+    startedAt && completedAt ? Math.max(0, new Date(completedAt).getTime() - new Date(startedAt).getTime()) : 0;
   return {
     id: run.id,
     startedAt,

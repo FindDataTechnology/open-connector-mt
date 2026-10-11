@@ -1863,6 +1863,8 @@ describe("ConnectServer", () => {
         issuer: "https://idp.example",
         audience: "connect",
         serviceObo: "off",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: database.tenantStore,
       sessionKey: { encryptionKey: "k" },

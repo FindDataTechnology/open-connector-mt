@@ -24,12 +24,23 @@ export interface TenancyConfig {
   serviceObo: "off" | "allow-all" | "consent";
   /** LOCALE_DEFAULT: deployment default console language, en when unset. */
   localeDefault?: string;
+  /** OOMOL_CONNECT_CROSS_MINT_ORIGINS: exact origins allowed to call the cross-mint
+   * endpoint from a browser. Empty disables the endpoint entirely (no routes registered). */
+  crossMintOrigins: string[];
+  /** OOMOL_CONNECT_CROSS_SITE_COOKIE: when on, tenant session cookies are
+   * SameSite=None; Secure so cross-mint fetches can carry them; also arms the
+   * Origin guard on mutating /api/tenant/* routes (D8 of the account picker). */
+  crossSiteCookie: boolean;
 }
 
 export function readTenancyConfig(env: Record<string, string | undefined> = process.env): TenancyConfig {
   const mode = (env.TENANCY || "off").trim() === "oidc" ? "oidc" : "off";
   const serviceOboRaw = (env.SERVICE_OBO || "off").trim();
   const serviceObo = serviceOboRaw === "allow-all" ? "allow-all" : serviceOboRaw === "consent" ? "consent" : "off";
+  const crossMintOrigins = (env.OOMOL_CONNECT_CROSS_MINT_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
   return {
     mode,
     jwksUri: env.OOMOL_CONNECT_JWKS_URI?.trim() || undefined,
@@ -38,5 +49,7 @@ export function readTenancyConfig(env: Record<string, string | undefined> = proc
     clientId: env.OOMOL_CONNECT_OIDC_CLIENT_ID?.trim() || undefined,
     serviceObo,
     localeDefault: env.LOCALE_DEFAULT?.trim() || undefined,
+    crossMintOrigins,
+    crossSiteCookie: (env.OOMOL_CONNECT_CROSS_SITE_COOKIE ?? "").trim() === "1",
   };
 }

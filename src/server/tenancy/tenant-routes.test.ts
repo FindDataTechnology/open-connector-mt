@@ -1,10 +1,10 @@
-import type { TenantRouteOptions } from "./tenant-routes.ts";
 import type { RunLog } from "../storage/runtime-store.ts";
+import type { TenantRouteOptions } from "./tenant-routes.ts";
 
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { projectRun, registerTenantRoutes } from "./tenant-routes.ts";
 import { readSessionCookieName } from "./tenant-auth.ts";
+import { projectRun, registerTenantRoutes } from "./tenant-routes.ts";
 
 /**
  * add-tenant-runs-card: the tenant run-log route is a projection, so these
@@ -74,10 +74,7 @@ async function request(options: TenantRouteOptions, path: string, cookie?: strin
 
 describe("GET /api/tenant/runs (add-tenant-runs-card)", () => {
   it("scopes the query to the caller's tenant", async () => {
-    const runs = [
-      run({ id: "r1", tenantId: "t1" }),
-      run({ id: "r2", tenantId: "t2" }),
-    ];
+    const runs = [run({ id: "r1", tenantId: "t1" }), run({ id: "r2", tenantId: "t2" })];
     const { options, seen } = buildOptions(runs, []);
     const response = await request(options, "/api/tenant/runs");
     expect(seen[0]?.tenantId).toBe("t1");
@@ -146,5 +143,212 @@ describe("projectRun", () => {
       new Map(),
     );
     expect(view.durationMs).toBe(0);
+  });
+});
+
+// add-connector-account-picker: cross-mint endpoint + mutating-route Origin guard.
+describe("cross-mint", () => {
+  const ALLOWED = "https://yizuo.example";
+  const created: { name: string }[] = [];
+
+  function buildCrossOptions(overrides: Partial<TenantRouteOptions> = {}): TenantRouteOptions {
+    created.length = 0;
+    return {
+      hooks: {
+        config: { mode: "oidc" },
+        verifySessionCookie: async () => "identity-1",
+      },
+      config: { mode: "oidc", crossMintOrigins: [ALLOWED], crossSiteCookie: false },
+      tenants: {
+        getIdentityById: async () => ({ id: "identity-1", tenantId: "t1", email: "u@example.com", disabledAt: null }),
+      },
+      runtimeTokens: {
+        listTokens: async () => [{ id: "existing", name: "existing-pat", kind: "user_pat", tenantId: "t1" }],
+        createToken: async (name: string) => {
+          created.push({ name });
+          return {
+            token: "oct_new-plaintext",
+            record: { id: `new-${created.length}`, name },
+          };
+        },
+      },
+      oauthFlow: {},
+      connections: {},
+      catalog: {},
+      actions: { run: async () => undefined, listRuns: async () => ({ items: [] }) },
+      policyOf: async () => ({ allowedActions: [], blockedActions: [], allowedProxies: [], allowedConnections: [] }),
+      ...overrides,
+    } as unknown as TenantRouteOptions;
+  }
+
+  async function crossRequest(
+    options: TenantRouteOptions,
+    path: string,
+    init: { method?: string; origin?: string; body?: unknown } = {},
+  ): Promise<Response> {
+    const app = new Hono();
+    registerTenantRoutes(app, options);
+    const headers: Record<string, string> = { cookie: `${readSessionCookieName()}=stub-session` };
+    if (init.origin) headers.origin = init.origin;
+    if (init.body !== undefined) headers["content-type"] = "application/json";
+    return app.request(
+      new Request(`http://localhost${path}`, {
+        method: init.method ?? "GET",
+        headers,
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      }),
+    );
+  }
+
+  it("registers no routes when the allowlist is empty", async () => {
+    const options = buildCrossOptions({
+      config: { mode: "oidc", crossMintOrigins: [], crossSiteCookie: false },
+    } as unknown as Partial<TenantRouteOptions>);
+    const probe = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: ALLOWED });
+    expect(probe.status).toBe(404);
+  });
+
+  it("probe: allowlisted origin + session → identity, non-allowlisted → 403 without CORS headers", async () => {
+    const options = buildCrossOptions();
+    const ok = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: ALLOWED });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("access-control-allow-origin")).toBe(ALLOWED);
+    expect(ok.headers.get("access-control-allow-credentials")).toBe("true");
+    expect(ok.headers.get("vary")).toContain("Origin");
+    expect((await ok.json()) as Record<string, unknown>).toEqual({ email: "u@example.com", displayName: null });
+
+    const denied = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: "https://evil.example" });
+    expect(denied.status).toBe(403);
+    expect(denied.headers.get("access-control-allow-origin")).toBeNull();
+
+    const noHeader = await crossRequest(options, "/api/tenant/cross-mint/probe");
+    expect(noHeader.status).toBe(403);
+    expect(noHeader.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("probe and mint require a session (401 without)", async () => {
+    const options = buildCrossOptions({
+      hooks: {
+        config: { mode: "oidc" },
+        verifySessionCookie: async () => undefined,
+      },
+    } as unknown as Partial<TenantRouteOptions>);
+    const probe = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: ALLOWED });
+    expect(probe.status).toBe(401);
+    const mint = await crossRequest(options, "/api/tenant/cross-mint", {
+      method: "POST",
+      origin: ALLOWED,
+      body: { name: "x" },
+    });
+    expect(mint.status).toBe(401);
+    expect(created).toHaveLength(0);
+  });
+
+  it("mint: mints a new PAT returning token+id+name exactly once, never existing tokens", async () => {
+    const options = buildCrossOptions();
+    const minted = await crossRequest(options, "/api/tenant/cross-mint", {
+      method: "POST",
+      origin: ALLOWED,
+      body: { name: "壹座 · a@example.com" },
+    });
+    expect(minted.status).toBe(200);
+    expect(minted.headers.get("access-control-allow-origin")).toBe(ALLOWED);
+    const body = (await minted.json()) as { token: string; id: string; name: string };
+    expect(body.token).toBe("oct_new-plaintext");
+    expect(body.id).toBe("new-1");
+    expect(body.name).toBe("壹座 · a@example.com");
+    expect(created.map((c) => c.name)).toEqual(["壹座 · a@example.com"]);
+
+    // mint again → a second PAT, not idempotent
+    await crossRequest(options, "/api/tenant/cross-mint", { method: "POST", origin: ALLOWED, body: { name: "n" } });
+    expect(created).toHaveLength(2);
+  });
+
+  it("preflight: allowlisted origin gets methods/headers/credentials; others get 403", async () => {
+    const options = buildCrossOptions();
+    const ok = await crossRequest(options, "/api/tenant/cross-mint", { method: "OPTIONS", origin: ALLOWED });
+    expect(ok.status).toBe(204);
+    expect(ok.headers.get("access-control-allow-origin")).toBe(ALLOWED);
+    expect(ok.headers.get("access-control-allow-methods")).toBe("GET, POST");
+    expect(ok.headers.get("access-control-allow-headers")).toBe("content-type");
+    expect(ok.headers.get("access-control-allow-credentials")).toBe("true");
+
+    const denied = await crossRequest(options, "/api/tenant/cross-mint", {
+      method: "OPTIONS",
+      origin: "https://x.example",
+    });
+    expect(denied.status).toBe(403);
+    expect(denied.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
+describe("mutating-route Origin guard (cross-site cookie deployments)", () => {
+  const ALLOWED = "https://yizuo.example";
+  const PUBLIC = "https://connector.example";
+
+  function buildGuardOptions(): TenantRouteOptions {
+    return {
+      hooks: { config: { mode: "oidc" }, verifySessionCookie: async () => "identity-1" },
+      config: { mode: "oidc", crossMintOrigins: [ALLOWED], crossSiteCookie: true },
+      tenants: { getIdentityById: async () => ({ id: "identity-1", tenantId: "t1", disabledAt: null }) },
+      runtimeTokens: {
+        listTokens: async () => [{ id: "p1", name: "pat", kind: "user_pat", tenantId: "t1" }],
+        createToken: async (name: string) => ({ token: "oct_t", record: { id: "p2", name } }),
+      },
+      oauthFlow: {},
+      connections: {},
+      catalog: {},
+      actions: { run: async () => undefined, listRuns: async () => ({ items: [] }) },
+      policyOf: async () => ({ allowedActions: [], blockedActions: [], allowedProxies: [], allowedConnections: [] }),
+      publicOrigin: PUBLIC,
+    } as unknown as TenantRouteOptions;
+  }
+
+  async function guardRequest(
+    path: string,
+    init: { method: string; origin?: string; authorization?: string; body?: unknown; cookie?: boolean },
+  ): Promise<Response> {
+    const app = new Hono();
+    registerTenantRoutes(app, buildGuardOptions());
+    const headers: Record<string, string> = {};
+    if (init.cookie !== false) headers.cookie = `${readSessionCookieName()}=stub-session`;
+    if (init.origin) headers.origin = init.origin;
+    if (init.authorization) headers.authorization = init.authorization;
+    if (init.body !== undefined) headers["content-type"] = "application/json";
+    return app.request(
+      new Request(`http://localhost${path}`, {
+        method: init.method,
+        headers,
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      }),
+    );
+  }
+
+  it("blocks cross-site POST/DELETE without an allowlisted origin", async () => {
+    const evil = await guardRequest("/api/tenant/pats", { method: "POST", origin: "https://evil.example", body: {} });
+    expect(evil.status).toBe(403);
+    const del = await guardRequest("/api/tenant/pats/p1", { method: "DELETE", origin: "https://evil.example" });
+    expect(del.status).toBe(403);
+  });
+
+  it("allows same-origin and allowlisted-origin mutations", async () => {
+    const same = await guardRequest("/api/tenant/pats", { method: "POST", origin: PUBLIC, body: { name: "n" } });
+    expect(same.status).not.toBe(403);
+    const listed = await guardRequest("/api/tenant/pats", { method: "POST", origin: ALLOWED, body: { name: "n" } });
+    expect(listed.status).not.toBe(403);
+  });
+
+  it("does not disturb GET routes or bearer-only callers", async () => {
+    const get = await guardRequest("/api/tenant/pats", { method: "GET", origin: "https://evil.example" });
+    expect(get.status).toBe(200);
+    // No session cookie → no cookie to blind-fire → the guard lets it through
+    // for bearer callers (壹座 backend revocation) to work unchanged.
+    const bearer = await guardRequest("/api/tenant/pats", {
+      method: "POST",
+      authorization: "Bearer oct_t",
+      body: { name: "n" },
+      cookie: false,
+    });
+    expect(bearer.status).not.toBe(403);
   });
 });

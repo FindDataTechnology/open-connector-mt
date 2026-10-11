@@ -130,19 +130,25 @@ export async function createTenantAuthHooks(deps: {
     return Buffer.from(await crypto.subtle.sign("HMAC", key, utf8(payload))).toString("base64url");
   }
 
+  // add-connector-account-picker D3: when the deployment arms the cross-mint
+  // flow, session cookies must survive cross-site fetches (SameSite=None). The
+  // mutating-route Origin guard (tenant-routes D8) closes the CSRF surface this
+  // opens; default stays Lax so upstream/TENANCY=off behavior is untouched.
+  const sessionSameSite: "Lax" | "None" = config.crossSiteCookie ? "None" : "Lax";
+
   async function issueSession(context: Context, identityId: string): Promise<void> {
     const payload = `${sessionCookieVersion}.${Date.now()}.${identityId}`;
     setCookie(context, sessionCookieName, `${payload}.${await sign(payload)}`, {
       httpOnly: true,
       maxAge: sessionMaxAgeSeconds,
-      sameSite: "Lax", // the OIDC redirect round-trip is a cross-site navigation
+      sameSite: sessionSameSite, // Lax: the OIDC redirect round-trip is a cross-site navigation
       secure: secureCookies || context.req.url.startsWith("https://"),
       path: "/",
     });
   }
 
   function clearSession(context: Context): void {
-    deleteCookie(context, sessionCookieName, { httpOnly: true, sameSite: "Lax", path: "/" });
+    deleteCookie(context, sessionCookieName, { httpOnly: true, sameSite: sessionSameSite, path: "/" });
   }
 
   async function verifySessionCookie(value: string): Promise<string | undefined> {

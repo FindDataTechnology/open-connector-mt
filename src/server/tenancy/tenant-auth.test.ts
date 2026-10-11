@@ -93,6 +93,8 @@ describe("tenant auth hooks", () => {
         audience: jwks.audience,
         clientId: "console-client",
         serviceObo: "allow-all",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "test-encryption-key" },
@@ -124,14 +126,20 @@ describe("tenant auth hooks", () => {
   it("refuses construction in off mode or with incomplete OIDC settings", async () => {
     await expect(
       createTenantAuthHooks({
-        config: { mode: "off", serviceObo: "off" },
+        config: { mode: "off", serviceObo: "off", crossMintOrigins: [], crossSiteCookie: false },
         tenantStore: tenants,
         sessionKey: {},
       }),
     ).rejects.toThrow(/only constructed in TENANCY=oidc/);
     await expect(
       createTenantAuthHooks({
-        config: { mode: "oidc", jwksUri: jwks.jwksUri, serviceObo: "off" },
+        config: {
+          mode: "oidc",
+          jwksUri: jwks.jwksUri,
+          serviceObo: "off",
+          crossMintOrigins: [],
+          crossSiteCookie: false,
+        },
         tenantStore: tenants,
         sessionKey: {},
       }),
@@ -216,6 +224,8 @@ describe("tenant auth hooks", () => {
         issuer: jwks.issuer,
         audience: jwks.audience,
         serviceObo: "consent",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "k" },
@@ -227,6 +237,8 @@ describe("tenant auth hooks", () => {
         issuer: jwks.issuer,
         audience: jwks.audience,
         serviceObo: "off",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "k" },
@@ -274,6 +286,48 @@ describe("tenant auth hooks", () => {
     expect(oboAttempt).toMatchObject({ kind: "user_pat", tenantId: identity.tenantId });
     expect(oboAttempt?.actorTenantId).toBeUndefined();
   });
+
+  // add-connector-account-picker 1.5: the cross-site cookie switch flips the
+  // session cookie's SameSite; default stays Lax so upstream is untouched.
+  it("issues SameSite=None cookies only when OOMOL_CONNECT_CROSS_SITE_COOKIE=1", async () => {
+    const build = async (crossSiteCookie: boolean) =>
+      await createTenantAuthHooks({
+        config: {
+          mode: "oidc",
+          jwksUri: jwks.jwksUri,
+          issuer: jwks.issuer,
+          audience: jwks.audience,
+          serviceObo: "off",
+          crossMintOrigins: [],
+          crossSiteCookie,
+        },
+        tenantStore: tenants,
+        sessionKey: { encryptionKey: "k" },
+      });
+    const lax = await build(false);
+    const laxContext = await capturedContext(null, "https://x.example/api/tenant/session");
+    await lax.issueSession(laxContext, "identity-1");
+    expect(laxContext.res.headers.get("set-cookie")).toContain("SameSite=Lax");
+
+    const none = await build(true);
+    const noneContext = await capturedContext(null, "https://x.example/api/tenant/session");
+    await none.issueSession(noneContext, "identity-1");
+    const noneHeader = noneContext.res.headers.get("set-cookie") ?? "";
+    expect(noneHeader).toContain("SameSite=None");
+    expect(noneHeader).toContain("Secure");
+
+    // config parsing: the env var must be exactly "1"
+    expect(readTenancyConfig({ OOMOL_CONNECT_CROSS_SITE_COOKIE: "1" }).crossSiteCookie).toBe(true);
+    expect(readTenancyConfig({ OOMOL_CONNECT_CROSS_SITE_COOKIE: "true" }).crossSiteCookie).toBe(false);
+    expect(readTenancyConfig({}).crossSiteCookie).toBe(false);
+    expect(
+      readTenancyConfig({ OOMOL_CONNECT_CROSS_MINT_ORIGINS: "https://a.example/, https://b.example/" })
+        .crossMintOrigins,
+    ).toEqual(["https://a.example", "https://b.example"]);
+    expect(readTenancyConfig({ OOMOL_CONNECT_CROSS_MINT_ORIGINS: "https://a.example/" }).crossMintOrigins).toEqual([
+      "https://a.example",
+    ]);
+  });
 });
 
 describe("local auth middleware with tenant hooks", () => {
@@ -289,6 +343,8 @@ describe("local auth middleware with tenant hooks", () => {
         issuer: server.issuer,
         audience: server.audience,
         serviceObo: "off",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "k" },
@@ -332,6 +388,8 @@ describe("local auth middleware with tenant hooks", () => {
           issuer: server.issuer,
           audience: server.audience,
           serviceObo,
+          crossMintOrigins: [],
+          crossSiteCookie: false,
         },
         tenantStore: tenants,
         sessionKey: { encryptionKey: "k" },
@@ -401,6 +459,8 @@ describe("request-context wiring", () => {
         issuer: server.issuer,
         audience: server.audience,
         serviceObo: "off",
+        crossMintOrigins: [],
+        crossSiteCookie: false,
       },
       tenantStore: tenants,
       sessionKey: { encryptionKey: "k" },
