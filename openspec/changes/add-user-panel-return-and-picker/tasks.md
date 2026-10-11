@@ -28,5 +28,8 @@
 
 ## 5. 部署
 
-- [x] 5.1 出片与滚动：scs001 快照 `d4a4255`（真 sha 5faabe3 content）→ GHA Publish TCR Image 2m27s → cheap-3 relay 回灌 `OK yizuo/open-connector-mt:sha-d4a4255` → skopeo 实证 ccr digest `sha256:a4b6b90b` → GitOps `c9f258f` 推 gitee → ArgoCD 同步 → rollout 成功（pod `69c9854c5d-g5dmx`）。
-- [x] 5.2 in-pod 实证：`/app/dist/web/assets/index-BYDOtF7g.js` 含四标记（Back to admin console / Choose provider / Recent runs / Wanxing Connector）；线上 health 200、`/me` 200、`/api/tenant/runs` 匿名 401（鉴权门生效）。
+- [x] 5.1 出片与滚动（首轮）：scs001 快照 `d4a4255`（真 sha 5faabe3 content）→ GHA Publish TCR Image 2m27s → cheap-3 relay 回灌 `OK yizuo/open-connector-mt:sha-d4a4255` → skopeo 实证 ccr digest `sha256:a4b6b90b` → GitOps `c9f258f` 推 gitee → ArgoCD 同步 → rollout 成功（pod `69c9854c5d-g5dmx`）。
+- [x] 5.2 in-pod 实证（首轮）：`/app/dist/web/assets/index-BYDOtF7g.js` 含四标记（Back to admin console / Choose provider / Recent runs / Wanxing Connector）；线上 health 200、`/me` 200、`/api/tenant/runs` 匿名 401（鉴权门生效）。
+- [x] 5.3 修复轮出片与滚动：真 sha `5f8353a` → scs001 快照 `b20f029` → GHA 2m37s → relay 回灌 `OK yizuo/open-connector-mt:sha-b20f029` → skopeo digest `sha256:6077f4d4` → GitOps `e14a239` 推 gitee → ArgoCD hard refresh → rollout 成功（pod `open-connector-mt-6f9d7b8cdb-h67pm`）。
+- [x] 5.4 in-pod + 线上复验：`/app/dist/web/assets/index-2wgIFRRJ.js` 含 `{{count}} matches`（修复后的插值形态）；线上已服务该 bundle；面板实测匹配数渲染为「共 1458 条匹配」（不再是字面量 `{count}`）。
+- 注：scs001 快照仓的 `CI` workflow 本就红（15 个既有文件不过 oxfmt，含上轮已提交的 tenant-routes.ts / ui.tsx）；出片走 `Publish TCR Image`，该 job 绿即链路成立，两轮均如此。

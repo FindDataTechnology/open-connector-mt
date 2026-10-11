@@ -22,3 +22,5 @@
 - [x] 4.4 用户浏览器一眼验收（真账号 `aloadtree@gmail.com`，2026-10-11）：面板试跑 `appledb.get_device` / `appledb.search_devices` 与一枚 PAT 经 `/mcp` 的 `execute_action` 共 3 条真实调用，展开卡片可见时间/耗时/成败/actionId/连接名/失败 errorCode 与可展开 inputSummary；PAT 那条 `patName` 正确显示 `acceptance-pat`。
 - [x] 4.5 验收抓到的缺陷并修复：面板自身发起的调用（`caller: web`）压根没用令牌，却被打上「外部令牌」占位——把唯一该显示占位的场景（无法指名的令牌：OBO 服务令牌/已撤销 PAT）淹没了。抽出纯函数 `runTokenLabel(run, t)`（`caller === "web"` 且无名时留空），并加真值表测试。
 - [x] 4.6 验收边界记录：`/api/tenant/*` 只认 OIDC 会话，PAT bearer 走该族路由恒 401（PAT 归运行时面 `/mcp`、`/v1/*`）——既定边界，非缺陷。因此 PAT 调用仍会入本租户运行记录（落库 `tenant_id`），只是不能反过来读面板路由。
+- [x] 4.7 修复轮上线复验（真 sha `5f8353a` → 快照 `b20f029`，pod `6f9d7b8cdb-h67pm`）：展开运行卡，PAT 那条显示 `· acceptance-pat`，面板自发起的两条不再出现「外部令牌」；失败行 errorCode 与输入摘要照常。
+- 注：`list_apps` / `tools/list` 这类只读工具调用**不写**运行日志（不经 action-runner），只有 `execute_action` / 面板试跑才落库——验收造数据须用后者。
