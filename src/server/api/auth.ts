@@ -79,6 +79,23 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
   return async (context, next) => {
     const scope = readAuthScope(context.req.path);
     if (isPublicPath(context.req.path, context.req.method)) {
+      // open-connector-mt: public-path requests still carry PAT bearers that
+      // tenant routes must see (e.g. the platform backend revoking a PAT via
+      // DELETE /api/tenant/pats/:id with the stored token). Resolve the grant
+      // and stash the tenant principal so requireUser's bearer path works;
+      // without this the WeakMap is empty on public paths and every PAT
+      // bearer on /api/tenant/* 401s.
+      if (options.tenant) {
+        const bearer = readBearerCredential(context);
+        if (bearer) {
+          const grant = await options.resolveRuntimeToken?.(bearer);
+          if (grant) {
+            runtimeGrants.set(context.req.raw, grant);
+            const principal = await options.tenant.resolve(context, false, grant);
+            if (principal) tenantPrincipals.set(context.req.raw, principal);
+          }
+        }
+      }
       await next();
       return;
     }
