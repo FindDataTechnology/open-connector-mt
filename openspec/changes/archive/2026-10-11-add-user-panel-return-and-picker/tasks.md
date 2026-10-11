@@ -20,7 +20,8 @@
 - [x] 4.1 全量 vitest 绿（含既有 user-page 测试无回归）；`web/` 构建通过。
 - [x] 4.2 用户浏览器一眼验收（真账号 `aloadtree@gmail.com`，2026-10-11）：解锁管理台后侧边栏「我的连接」→ /me 顶栏出现「返回管理台」→ 点击回到 `/overview` 且管理台仍解锁（侧边栏与概览数据在）；`POST /api/auth/logout` 后再开 /me，顶栏无该链接（反向用例实证）。选择器弹层打开正常、搜 `github` 过滤到 1 条并显示「支持 OAuth」标记。
 - [x] 4.3 验收抓到的缺陷并修复：`tenant.connections.matchCount` 六语言写成单括号 `{count}`，而 `@embra/i18n` 只插值 `{{name}}`——页面渲染出字面量「共 {count} 条匹配」。已改六语言，并在 `i18n.test.ts` 加"禁止单括号占位符"断言（en 也覆盖）；回测确认该断言会红（2 处失败）后还原。
-- [ ] 4.4 遗留（人工，需真 provider 凭据）：新增表单搜索选定 provider 后走通 API key 新增。
+- [x] 4.4 新增表单选定 provider → API key 新增 → 真实调用（真账号 + 真密钥，2026-10-11）：选择器搜 `alpha vantage` 得「共 1 条匹配」→ 选中回填 → 填密钥 → 添加连接成功（`alpha_vantage / default`，密钥经 MARKET_STATUS 真实校验）→ 试跑 `alpha_vantage.get_global_quote{symbol:IBM}` 返回 `ok:true` 与 IBM 真实报价 → 落进 /me 运行记录卡（3993ms · Alpha Vantage API Key）。
+- [x] 4.5 前置依赖修复：本次验收最初失败的真因是 **fd-prod 的 connector 对所有境外 provider 都无出网**（pod 在 cheap-8 节点，直连境外超时；历史 runs 5 条 0 成功）。已挂集群 mihomo 出口 + NO_PROXY 国内豁免（见 GitOps `1f8f73e`/`acea6a2`），详情记在 memory `connector-egress-proxy`。
 
 ## 6. 测试基建（验收连带发现）
 
