@@ -300,7 +300,12 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (
       path === "/api/tenant/config" ||
       path === "/api/tenant/oidc/authorize" ||
-      path === "/api/tenant/oidc/callback"
+      path === "/api/tenant/oidc/callback" ||
+      // cross-mint owns its Origin + session checks and must answer with CORS
+      // headers on 401 too (the browser reads the status to poll the flow);
+      // this middleware's bare 401 would short-circuit before those headers.
+      path === "/api/tenant/cross-mint" ||
+      path === "/api/tenant/cross-mint/probe"
     ) {
       await next();
       return;

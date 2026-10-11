@@ -208,6 +208,19 @@ describe("cross-mint", () => {
     expect(probe.status).toBe(404);
   });
 
+  it("401 from the route itself still carries CORS headers (the browser must read the status)", async () => {
+    const options = buildCrossOptions({
+      hooks: {
+        config: { mode: "oidc" },
+        verifySessionCookie: async () => undefined,
+      },
+    } as unknown as Partial<TenantRouteOptions>);
+    const res = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: ALLOWED });
+    expect(res.status).toBe(401);
+    expect(res.headers.get("access-control-allow-origin")).toBe(ALLOWED);
+    expect(res.headers.get("vary")).toContain("Origin");
+  });
+
   it("probe: allowlisted origin + session → identity, non-allowlisted → 403 without CORS headers", async () => {
     const options = buildCrossOptions();
     const ok = await crossRequest(options, "/api/tenant/cross-mint/probe", { origin: ALLOWED });
