@@ -14,7 +14,7 @@
 #### Scenario: 投影剔除内部标识
 
 - **WHEN** 运行记录数据返回租户侧
-- **THEN** 不含 runtimeTokenId、tenantId、policy 检查明细；发起方以 PAT 名展示（OBO 代调的发起令牌属服务方、已删除令牌等无匹配场景统一回退中性占位文案，不区分原因）
+- **THEN** 不含 runtimeTokenId、tenantId、policy 检查明细；发起方以 PAT 名展示（OBO 代调的发起令牌属服务方、已删除令牌等无匹配场景统一回退中性占位文案，不区分原因）；面板自身发起（`caller: web`）的调用不呈现任何令牌归因——该次调用未使用令牌，占位文案仅留给无法指名的令牌
 
 #### Scenario: 脱敏摘要可展开
 

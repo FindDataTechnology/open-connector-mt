@@ -7,7 +7,7 @@ console 的用户面板（独立壳层 + 连接全生命周期 + PAT 管理）�
 
 ### Requirement: 用户面板独立壳层
 
-`TENANCY=oidc` 下 `/me` 用户面板使用独立于管理台的壳层版式与品牌：顶部通栏品牌条 + 纵向主区，不借用管理台的两列网格布局；品牌为「萬星连接器 / Wanxing Connector」，管理台品牌保持上游原文。用户面板顶栏不提供指向管理台的入口（普通租户在 admin token 后会撞解锁墙；管理员经直连 URL 进管理台，「登录后落 `/me`」规则不变）。
+`TENANCY=oidc` 下 `/me` 用户面板使用独立于管理台的壳层版式与品牌：顶部通栏品牌条 + 纵向主区，不借用管理台的两列网格布局；品牌为「萬星连接器 / Wanxing Connector」，管理台品牌保持上游原文。用户面板顶栏默认不提供指向管理台的入口（普通租户在 admin token 后会撞解锁墙）；仅当探测到既有 admin 会话（`GET /api/auth/session` 返回 `adminAuthConfigured && authenticated`）时显示「返回管理台」回程链接，点击走 SPA 内导航到 `/overview`（admin 会话 cookie 仍在，无需重新解锁）。「登录后落 `/me`」规则不变。
 
 #### Scenario: 版式独立于管理台布局
 
@@ -22,8 +22,13 @@ console 的用户面板（独立壳层 + 连接全生命周期 + PAT 管理）�
 
 #### Scenario: 顶栏无管理入口
 
-- **WHEN** 普通租户查看用户面板顶栏
-- **THEN** 不存在指向 `/overview` 等管理台路由的链接；直接访问管理台路由仍按既有 admin token 规则呈现解锁面
+- **WHEN** 普通租户（admin 会话探测不为 `adminAuthConfigured && authenticated`）查看用户面板顶栏
+- **THEN** 不存在指向 `/overview` 等管理台路由的链接，包括探测失败或未配置 admin token 的部署；直接访问管理台路由仍按既有 admin token 规则呈现解锁面
+
+#### Scenario: 可证 admin 回程
+
+- **WHEN** 曾解锁管理台的用户（浏览器持有 admin 会话 cookie）打开 `/me`，`/api/auth/session` 探测返回 `adminAuthConfigured && authenticated`
+- **THEN** 顶栏出现「返回管理台」链接，点击后 SPA 内导航到 `/overview`，管理台呈已解锁状态（不要求重新输入 admin token）
 
 #### Scenario: off 档不受影响
 
@@ -46,7 +51,7 @@ console 的用户面板（独立壳层 + 连接全生命周期 + PAT 管理）�
 
 ### Requirement: 用户面板连接生命周期
 
-MT 模式下 console 提供用户面板：连接列表（含状态）、新增 API key 连接、发起 OAuth 连接、删除、改名、试跑 Action。用户自建连接与虚拟免鉴权连接分组呈现：自建连接置前；虚拟连接独立分组、默认收起、标题带计数；虚拟行不提供删除（对 no_auth provider 的断开会当场重建虚拟行，删除是无效操作）。
+MT 模式下 console 提供用户面板：连接列表（含状态）、新增 API key 连接、发起 OAuth 连接、删除、改名、试跑 Action。新增表单的 provider 选择走搜索式选择器（Dialog 弹层 + 客户端过滤 + 只渲染前 N 条匹配），列表排除仅支持 no_auth 的 provider（由免鉴权折叠组承载）；authType 选项仅 API Key / OAuth（手动 no_auth 创建不落库、与自动虚拟行同投影，不提供该路径）。用户自建连接与虚拟免鉴权连接分组呈现：自建连接置前；虚拟连接独立分组、默认收起、标题带计数；虚拟行不提供删除（对 no_auth provider 的断开会当场重建虚拟行，删除是无效操作）。
 
 #### Scenario: 列表含状态
 
@@ -55,8 +60,23 @@ MT 模式下 console 提供用户面板：连接列表（含状态）、新增 A
 
 #### Scenario: 粘贴式新增
 
-- **WHEN** 用户为某 provider 粘贴 API key 保存
+- **WHEN** 用户经搜索选择器选定 provider、粘贴 API key 保存
 - **THEN** 连接按租户加密落库，凭证不再回显
+
+#### Scenario: 搜索式选择 provider
+
+- **WHEN** 用户在新增表单点击「选择提供商」并输入搜索词
+- **THEN** 弹层内客户端过滤全量目录、只渲染前 N 条匹配；行内呈现 displayName + service id + OAuth 能力标记，选中后 authType 可选项随 provider 能力联动
+
+#### Scenario: 仅 no_auth provider 不入选择器
+
+- **WHEN** 目录中某 provider 的 authTypes 与 {api_key, oauth2} 交集为空
+- **THEN** 该 provider 不出现在选择器结果中（其可用性由免鉴权折叠组表达）
+
+#### Scenario: authType 无 no_auth
+
+- **WHEN** 用户展开新增表单的 authType 选择
+- **THEN** 选项仅 API Key 与 OAuth（provider 支持时），不含 no_auth
 
 #### Scenario: OAuth 发起到回调
 
@@ -97,6 +117,45 @@ MT 模式下 console 提供用户面板：连接列表（含状态）、新增 A
 
 - **WHEN** PAT 卡呈现
 - **THEN** 卡内含指引文案：把令牌粘贴到 agent 平台（如壹座）的连接器设置中
+
+### Requirement: 用户面板运行记录
+
+`TENANCY=oidc` 下用户面板提供本租户的最近运行记录：只读路由 `GET /api/tenant/runs` 按 `runWithTenant` 租户限定返回该租户名下一切调用（含 service PAT 的 OBO 代调）最近 20 条（不分页）；响应为投影字段（时间/耗时/成败/actionId/caller/连接名/errorCode/errorMessage/inputSummary/outputSummary 与 PAT 名映射），不回传 runtimeTokenId、tenantId、policy 明细。`/me` 面板以运行记录卡呈现：默认收起、标题带条目计数、手动刷新（不轮询）、置于试跑卡之后。
+
+#### Scenario: 最近调用列表
+
+- **WHEN** 已登录租户展开运行记录卡
+- **THEN** 呈现本租户最近 20 条调用（时间+耗时、成败、actionId、caller、连接名、发起 PAT 名），最近优先
+
+#### Scenario: 投影剔除内部标识
+
+- **WHEN** 运行记录数据返回租户侧
+- **THEN** 不含 runtimeTokenId、tenantId、policy 检查明细；发起方以 PAT 名展示（OBO 代调的发起令牌属服务方、已删除令牌等无匹配场景统一回退中性占位文案，不区分原因）；面板自身发起（`caller: web`）的调用不呈现任何令牌归因——该次调用未使用令牌，占位文案仅留给无法指名的令牌
+
+#### Scenario: 脱敏摘要可展开
+
+- **WHEN** 租户点击某条调用的输入/输出摘要
+- **THEN** 展示服务端已脱敏的 inputSummary/outputSummary（敏感值呈 `[redacted]`），不发起额外请求
+
+#### Scenario: 含 OBO 代调
+
+- **WHEN** service PAT 以 actor 身份代本租户发起调用（OBO）
+- **THEN** 该条目出现在本租户运行记录中（落库 tenant_id 即本租户）
+
+#### Scenario: 租户隔离
+
+- **WHEN** A 租户请求 `/api/tenant/runs`
+- **THEN** 结果不含 B 租户的任何调用
+
+#### Scenario: 默认收起与手动刷新
+
+- **WHEN** 用户面板呈现
+- **THEN** 运行记录卡位于试跑卡之后、默认收起、标题带条目计数；展开与刷新均由用户手动触发，无自动轮询
+
+#### Scenario: off 档无此能力
+
+- **WHEN** `TENANCY=off`
+- **THEN** 不存在 `/api/tenant/runs` 路由与运行记录卡（本需求全部行为仅限 `TENANCY=oidc`）
 
 ### Requirement: 双语 zh-CN/en
 
