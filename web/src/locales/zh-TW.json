@@ -879,7 +879,7 @@
       "pickProvider": "選擇提供方",
       "pickProviderHint": "按名稱或服務識別搜尋。",
       "searchPlaceholder": "搜尋提供方…",
-      "matchCount": "共 {count} 筆符合",
+      "matchCount": "共 {{count}} 筆符合",
       "oauthCapable": "支援 OAuth"
     },
     "pats": {

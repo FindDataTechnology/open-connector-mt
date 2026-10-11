@@ -522,6 +522,19 @@ function Centered(props: { children: ReactNode }): ReactNode {
 }
 
 /**
+ * How a run was authenticated, for the row's trailing meta slot.
+ *
+ * A run started from the panel itself carries no token at all, so labelling it
+ * "external token" would be wrong and would hide the one case the placeholder
+ * exists for: a token the tenant can't name (OBO service token, revoked PAT).
+ * The distinction is only visible in a rendered row, hence the pure function.
+ */
+export function runTokenLabel(run: { patName: string; caller?: string }, t: (key: string) => string): string {
+  if (run.patName) return ` · ${run.patName}`;
+  return run.caller === "web" ? "" : ` · ${t("tenant.runs.externalToken")}`;
+}
+
+/**
  * Recent runs for this tenant (add-tenant-runs-card). A troubleshooting view,
  * not a main path: collapsed by default, fetched on first open, refreshed by
  * hand. Everything shown here was already redacted server-side.
@@ -581,7 +594,7 @@ export function RunsCard(): ReactNode {
                 <span className="user-run-meta">
                   {new Date(run.startedAt).toLocaleString()} · {run.durationMs}ms
                   {run.connectionName ? ` · ${run.connectionName}` : ""}
-                  {run.patName ? ` · ${run.patName}` : ` · ${t("tenant.runs.externalToken")}`}
+                  {runTokenLabel(run, t)}
                 </span>
                 {run.ok ? null : (
                   <span className="user-run-error">

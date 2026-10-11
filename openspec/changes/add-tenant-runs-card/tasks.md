@@ -19,4 +19,6 @@
 - [x] 4.1 全量 vitest 绿（服务端 + web，含既有 tenant-routes / user-page 测试无回归）；构建通过。
 - [x] 4.2 端到端实证（`scripts/mt-smoke.mjs` 扩展，真实服务器 + 真 MCP 调用）：alice 的 runs 非空且只含投影字段、bob 的 runs 不含 alice 条目、admin 域同一 run 仍带 runtimeTokenId/tenantId/policy 原文（投影对照实证）。**SMOKE PASS**。
 - [x] 4.3 部署与线上实证：scs001 快照 d4a4255 → relay → GitOps c9f258f → ArgoCD → rollout 成功；in-pod bundle 含「Recent runs」标记；线上 `/api/tenant/runs` 匿名 401。
-- [ ] 4.4 用户浏览器一眼验收（人工，需真账号）：/me 运行记录卡展开可见真实调用（时间/耗时/成败/actionId/PAT 名），失败调用 errorCode 可见。
+- [x] 4.4 用户浏览器一眼验收（真账号 `aloadtree@gmail.com`，2026-10-11）：面板试跑 `appledb.get_device` / `appledb.search_devices` 与一枚 PAT 经 `/mcp` 的 `execute_action` 共 3 条真实调用，展开卡片可见时间/耗时/成败/actionId/连接名/失败 errorCode 与可展开 inputSummary；PAT 那条 `patName` 正确显示 `acceptance-pat`。
+- [x] 4.5 验收抓到的缺陷并修复：面板自身发起的调用（`caller: web`）压根没用令牌，却被打上「外部令牌」占位——把唯一该显示占位的场景（无法指名的令牌：OBO 服务令牌/已撤销 PAT）淹没了。抽出纯函数 `runTokenLabel(run, t)`（`caller === "web"` 且无名时留空），并加真值表测试。
+- [x] 4.6 验收边界记录：`/api/tenant/*` 只认 OIDC 会话，PAT bearer 走该族路由恒 401（PAT 归运行时面 `/mcp`、`/v1/*`）——既定边界，非缺陷。因此 PAT 调用仍会入本租户运行记录（落库 `tenant_id`），只是不能反过来读面板路由。

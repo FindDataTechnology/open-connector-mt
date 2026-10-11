@@ -18,7 +18,13 @@
 ## 4. 验收门
 
 - [x] 4.1 全量 vitest 绿（含既有 user-page 测试无回归）；`web/` 构建通过。
-- [ ] 4.2 用户浏览器一眼验收（人工）：管理台解锁后从侧边栏点「我的连接」→ /me 顶栏出现「返回管理台」→ 点击回到已解锁管理台；普通租户（无 admin cookie 浏览器）顶栏无该链接；新增表单搜索选定 provider 走通 API key 新增。
+- [x] 4.2 用户浏览器一眼验收（真账号 `aloadtree@gmail.com`，2026-10-11）：解锁管理台后侧边栏「我的连接」→ /me 顶栏出现「返回管理台」→ 点击回到 `/overview` 且管理台仍解锁（侧边栏与概览数据在）；`POST /api/auth/logout` 后再开 /me，顶栏无该链接（反向用例实证）。选择器弹层打开正常、搜 `github` 过滤到 1 条并显示「支持 OAuth」标记。
+- [x] 4.3 验收抓到的缺陷并修复：`tenant.connections.matchCount` 六语言写成单括号 `{count}`，而 `@embra/i18n` 只插值 `{{name}}`——页面渲染出字面量「共 {count} 条匹配」。已改六语言，并在 `i18n.test.ts` 加"禁止单括号占位符"断言（en 也覆盖）；回测确认该断言会红（2 处失败）后还原。
+- [ ] 4.4 遗留（人工，需真 provider 凭据）：新增表单搜索选定 provider 后走通 API key 新增。
+
+## 6. 测试基建（验收连带发现）
+
+- [x] 6.1 `vitest.config.ts` 的 include 只有 `.test.ts`，`web/src/**/*.test.tsx` 被静默跳过——`user-page.test.tsx` 写了却从未执行，全量绿是假绿。已补 `.tsx` glob，全量测试数 3479 → 3491。
 
 ## 5. 部署
 

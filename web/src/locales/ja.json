@@ -879,7 +879,7 @@
       "pickProvider": "プロバイダーを選択",
       "pickProviderHint": "名前またはサービス ID で検索します。",
       "searchPlaceholder": "プロバイダーを検索…",
-      "matchCount": "{count} 件一致",
+      "matchCount": "{{count}} 件一致",
       "oauthCapable": "OAuth 対応"
     },
     "pats": {

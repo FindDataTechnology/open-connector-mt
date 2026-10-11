@@ -65,7 +65,7 @@ const locales = {
         pickProvider: "Choose provider",
         pickProviderHint: "Search by name or service id.",
         searchPlaceholder: "Search providers…",
-        matchCount: "{count} matches",
+        matchCount: "{{count}} matches",
         oauthCapable: "OAuth",
       },
       pats: {
@@ -262,5 +262,18 @@ describe("RunsCard (add-tenant-runs-card)", () => {
     expect(card).toContain('<span class="user-noauth-count">0</span>');
     // Nothing is fetched until the user opens it.
     expect(card).toContain("Open to load your recent calls.");
+  });
+
+  it("labels the caller's token only when a token was actually used", async () => {
+    const { runTokenLabel } = await import("./user-page");
+    const t = (key: string) => (key === "tenant.runs.externalToken" ? "external token" : key);
+    // A run started from the panel carries no token: calling it "external
+    // token" hides the one case the placeholder is for (a nameless token).
+    expect(runTokenLabel({ patName: "", caller: "web" }, t)).toBe("");
+    expect(runTokenLabel({ patName: "", caller: "mcp" }, t)).toBe(" · external token");
+    expect(runTokenLabel({ patName: "", caller: undefined }, t)).toBe(" · external token");
+    // A named PAT always wins, whatever the caller.
+    expect(runTokenLabel({ patName: "agent-pat", caller: "web" }, t)).toBe(" · agent-pat");
+    expect(runTokenLabel({ patName: "agent-pat", caller: "mcp" }, t)).toBe(" · agent-pat");
   });
 });

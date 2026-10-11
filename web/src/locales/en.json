@@ -879,7 +879,7 @@
       "pickProvider": "Choose provider",
       "pickProviderHint": "Search by name or service id.",
       "searchPlaceholder": "Search providers…",
-      "matchCount": "{count} matches",
+      "matchCount": "{{count}} matches",
       "oauthCapable": "OAuth"
     },
     "pats": {

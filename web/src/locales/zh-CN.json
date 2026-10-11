@@ -879,7 +879,7 @@
       "pickProvider": "选择提供方",
       "pickProviderHint": "按名称或服务标识搜索。",
       "searchPlaceholder": "搜索提供方…",
-      "matchCount": "共 {count} 条匹配",
+      "matchCount": "共 {{count}} 条匹配",
       "oauthCapable": "支持 OAuth"
     },
     "pats": {

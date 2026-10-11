@@ -10,7 +10,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "web/src/**/*.test.ts"],
+    // open-connector-mt: web tests are collected as .tsx too. The upstream
+    // globs matched .ts only, so a web/src/**/*.test.tsx file was silently
+    // never run — it looked like a green suite.
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "web/src/**/*.test.ts", "web/src/**/*.test.tsx"],
     setupFiles: ["./vitest.setup.ts"],
   },
 });

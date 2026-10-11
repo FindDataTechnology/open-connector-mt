@@ -879,7 +879,7 @@
       "pickProvider": "Choisir un fournisseur",
       "pickProviderHint": "Recherchez par nom ou identifiant de service.",
       "searchPlaceholder": "Rechercher des fournisseurs…",
-      "matchCount": "{count} résultats",
+      "matchCount": "{{count}} résultats",
       "oauthCapable": "OAuth"
     },
     "pats": {

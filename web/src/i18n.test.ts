@@ -98,6 +98,26 @@ describe("locales", () => {
   // ever caught here.
   const enEntries = flattenLocale(en);
 
+  // Interpolation is {{name}} only (@embra/i18n): a single-brace {name} is not
+  // substituted and reaches the user verbatim, which only a rendered page
+  // reveals. Every locale is checked, en included.
+  it("writes every placeholder in the {{name}} form", () => {
+    const locales = [
+      ["en", en],
+      ["zh-CN", zhCN],
+      ["zh-TW", zhTW],
+      ["ja", ja],
+      ["ru", ru],
+      ["fr", fr],
+    ] satisfies [string, LocaleTree][];
+    for (const [lang, locale] of locales) {
+      const offending = flattenLocale(locale)
+        .filter(([, value]) => /(?<!\{)\{\w+\}(?!\})/.test(value))
+        .map(([key]) => key);
+      expect(offending, `${lang} uses single-brace placeholders`).toEqual([]);
+    }
+  });
+
   // Product and protocol names every locale renders in English on purpose. A
   // multi-word value that matches en without being one of these is an
   // untranslated string, not a deliberate one. Terms are lowercased because the
@@ -148,6 +168,11 @@ describe("locales", () => {
         expect(placeholders(translations.get(key) ?? "")).toEqual(placeholders(value));
       }
       expect(entries.filter(([, value]) => value.trim() === "").map(([key]) => key)).toEqual([]);
+
+      // Interpolation is {{name}} only (@embra/i18n). A single-brace {name}
+      // passes the placeholder parity check above and renders literally, so
+      // ban it outright instead of trusting the reviewer to spot it.
+      expect(entries.filter(([, value]) => /(?<!\{)\{\w+\}(?!\})/.test(value)).map(([key]) => key)).toEqual([]);
 
       const allowedKeys = englishKeys[lang] ?? [];
       const untranslated = enEntries

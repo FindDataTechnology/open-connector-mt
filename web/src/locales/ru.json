@@ -879,7 +879,7 @@
       "pickProvider": "Выбрать провайдера",
       "pickProviderHint": "Поиск по названию или идентификатору сервиса.",
       "searchPlaceholder": "Поиск провайдеров…",
-      "matchCount": "Совпадений: {count}",
+      "matchCount": "Совпадений: {{count}}",
       "oauthCapable": "OAuth"
     },
     "pats": {
