@@ -148,7 +148,16 @@ export async function createTenantAuthHooks(deps: {
   }
 
   function clearSession(context: Context): void {
-    deleteCookie(context, sessionCookieName, { httpOnly: true, sameSite: sessionSameSite, path: "/" });
+    // The deletion cookie must match the issued one's Secure/SameSite shape:
+    // a SameSite=None cookie without Secure is rejected outright by browsers,
+    // so the logout response would read as ok:true while the session lives on
+    // (found live 2026-10-11 in the cross-site deployment).
+    deleteCookie(context, sessionCookieName, {
+      httpOnly: true,
+      sameSite: sessionSameSite,
+      secure: secureCookies || context.req.url.startsWith("https://"),
+      path: "/",
+    });
   }
 
   async function verifySessionCookie(value: string): Promise<string | undefined> {

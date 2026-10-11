@@ -316,6 +316,23 @@ describe("tenant auth hooks", () => {
     expect(noneHeader).toContain("SameSite=None");
     expect(noneHeader).toContain("Secure");
 
+    // The deletion cookie must carry the same Secure/SameSite shape as the
+    // issued one — a None-without-Secure deletion is rejected by browsers and
+    // the logout silently leaves the session alive (live defect 2026-10-11).
+    const clearLax = await capturedContext(null, "https://x.example/api/tenant/logout");
+    lax.clearSession(clearLax);
+    const clearLaxHeader = clearLax.res.headers.get("set-cookie") ?? "";
+    expect(clearLaxHeader).toContain("SameSite=Lax");
+    expect(clearLaxHeader).toMatch(/Max-Age=0|Expires=/);
+
+    const clearNone = await capturedContext(null, "https://x.example/api/tenant/logout");
+    none.clearSession(clearNone);
+    const clearNoneHeader = clearNone.res.headers.get("set-cookie") ?? "";
+    expect(clearNoneHeader).toMatch(/Max-Age=0|Expires=/);
+    if (clearNoneHeader.includes("SameSite=None")) {
+      expect(clearNoneHeader).toContain("Secure");
+    }
+
     // config parsing: the env var must be exactly "1"
     expect(readTenancyConfig({ OOMOL_CONNECT_CROSS_SITE_COOKIE: "1" }).crossSiteCookie).toBe(true);
     expect(readTenancyConfig({ OOMOL_CONNECT_CROSS_SITE_COOKIE: "true" }).crossSiteCookie).toBe(false);
