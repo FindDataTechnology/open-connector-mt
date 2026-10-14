@@ -8,7 +8,7 @@ import type { TenantConnection, TenantPat, TenantRun, TenantSession } from "./te
  */
 import type { ReactNode } from "react";
 
-import { useTranslate } from "@embra/i18n/react";
+import { useTranslate, useLang } from "@embra/i18n/react";
 import { KeyRound, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "../api";
@@ -102,13 +102,42 @@ export function UserPage(props: { providers: ProviderOption[] }): ReactNode {
   );
 }
 
-/** Pre-login hero: brand + one-line purpose + the single sign-in entry. */
+/**
+ * Where "Learn more" points: the official product page (add-welcome-entry).
+ * The site ships the page in zh/en only; every other language reads the en
+ * page. Follows the CONSOLE language (the user's explicit choice) rather than
+ * the browser's, so the link matches the page they are reading.
+ */
+export function learnMoreUrl(lang: string): string {
+  const base = "https://www.finddatatech.cloud";
+  return lang.toLowerCase().startsWith("zh")
+    ? `${base}/zh/products/wanxing-connector/`
+    : `${base}/products/wanxing-connector/`;
+}
+
+/**
+ * Pre-login welcome card (add-welcome-entry): brand + one-line positioning +
+ * the three-step journey + a learn-more link + a security note + the single
+ * sign-in entry. The copy stays at the official-page
+ * baseline (1500+ services, tens of thousands of actions — lower bounds, never
+ * precise expiring counts).
+ */
 export function SignInCard(): ReactNode {
   const t = useTranslate();
+  const lang = useLang();
   return (
     <div className="user-hero-card">
       <div className="console-brand">{t("userPanel.brand")}</div>
       <p className="user-hero-intro">{t("userPanel.signInIntro")}</p>
+      <ol className="user-hero-steps">
+        <li>{t("userPanel.stepSignIn")}</li>
+        <li>{t("userPanel.stepConnect")}</li>
+        <li>{t("userPanel.stepMint")}</li>
+      </ol>
+      <a className="user-hero-learn-more" href={learnMoreUrl(lang)} target="_blank" rel="noreferrer">
+        {t("userPanel.learnMore")}
+      </a>
+      <p className="user-hero-security">{t("userPanel.securityNote")}</p>
       <Button onClick={() => window.location.assign("/api/tenant/oidc/authorize")}>
         <KeyRound size={15} /> {t("tenant.signIn")}
       </Button>

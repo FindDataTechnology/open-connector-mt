@@ -851,7 +851,12 @@
   },
   "userPanel": {
     "brand": "萬星连接器",
-    "signInIntro": "在这里安全托管你的各类 SaaS 连接，并铸造访问令牌交给 agent 平台使用。",
+    "signInIntro": "连一次账户，agent 得到千只手——1500+ 外部服务、万级预置动作，统一凭据托管。",
+    "stepSignIn": "用统一身份登录",
+    "stepConnect": "添加你的 SaaS 连接（GitHub、飞书、钉钉…）",
+    "stepMint": "铸造访问令牌，粘贴到壹座",
+    "learnMore": "了解产品",
+    "securityNote": "凭据加密托管、运行日志脱敏，执行面不对公网。",
     "noAuthGroup": "免鉴权数据源（无需配置，直接可用）",
     "patHint": "把令牌粘贴到 agent 平台（如壹座）的连接器设置中",
     "backToAdmin": "返回管理台"

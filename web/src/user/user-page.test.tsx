@@ -37,7 +37,12 @@ const locales = {
     },
     userPanel: {
       brand: "Wanxing Connector",
-      signInIntro: "Store your SaaS connections securely and mint access tokens for your agent platforms.",
+      signInIntro: "Connect an account once and your agent gains a thousand hands.",
+      stepSignIn: "Sign in with your unified account",
+      stepConnect: "Add your SaaS connections",
+      stepMint: "Mint an access token and paste it into Yizuo",
+      learnMore: "Learn more",
+      securityNote: "Credentials encrypted, execution surface never exposed.",
       noAuthGroup: "Auth-free data sources (no setup needed, ready to use)",
       patHint: "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
       backToAdmin: "Back to admin console",
@@ -138,14 +143,36 @@ describe("UserPage", () => {
   });
 });
 
-describe("SignInCard (revamp-user-panel)", () => {
-  it("renders the centered hero: brand, purpose line, single sign-in entry", async () => {
+describe("SignInCard (revamp-user-panel + add-welcome-entry)", () => {
+  it("renders the centered hero: brand, purpose line, three steps, learn-more, security note, sign-in entry", async () => {
     const { SignInCard } = await import("./user-page");
     const markup = renderToStaticMarkup(withI18n(createElement(SignInCard)));
     expect(markup).toContain("user-hero-card");
     expect(markup).toContain("Wanxing Connector");
-    expect(markup).toContain("Store your SaaS connections securely");
+    expect(markup).toContain("Connect an account once");
+    // add-welcome-entry: the three-step journey.
+    expect(markup).toContain("user-hero-steps");
+    expect(markup).toContain("Sign in with your unified account");
+    expect(markup).toContain("Add your SaaS connections");
+    expect(markup).toContain("Mint an access token and paste it into Yizuo");
+    // Learn-more link: new tab, en locale points at the un-prefixed page.
+    expect(markup).toContain('class="user-hero-learn-more"');
+    expect(markup).toContain('href="https://www.finddatatech.cloud/products/wanxing-connector/"');
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain("Credentials encrypted");
     expect(markup).toContain("Sign in");
+  });
+
+  // The zh family reads the Chinese page; every other language reads the
+  // English one. Pure function, no render needed.
+  it("picks the official page by console language", async () => {
+    const { learnMoreUrl } = await import("./user-page");
+    expect(learnMoreUrl("zh-CN")).toBe("https://www.finddatatech.cloud/zh/products/wanxing-connector/");
+    expect(learnMoreUrl("zh-TW")).toBe("https://www.finddatatech.cloud/zh/products/wanxing-connector/");
+    expect(learnMoreUrl("en")).toBe("https://www.finddatatech.cloud/products/wanxing-connector/");
+    expect(learnMoreUrl("ja")).toBe("https://www.finddatatech.cloud/products/wanxing-connector/");
+    expect(learnMoreUrl("ru")).toBe("https://www.finddatatech.cloud/products/wanxing-connector/");
+    expect(learnMoreUrl("fr")).toBe("https://www.finddatatech.cloud/products/wanxing-connector/");
   });
 });
 

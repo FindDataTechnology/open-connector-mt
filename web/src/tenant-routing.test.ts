@@ -40,7 +40,15 @@ const locales = {
     brand: { console: "Open Connector" },
     nav: { overview: "Overview", me: "My connections" },
     shell: { logout: "Log out" },
-    userPanel: { brand: "Wanxing Connector" },
+    userPanel: {
+      brand: "Wanxing Connector",
+      signInIntro: "Connect an account once and your agent gains a thousand hands.",
+      stepSignIn: "Sign in with your unified account",
+      stepConnect: "Add your SaaS connections",
+      stepMint: "Mint an access token and paste it into Yizuo",
+      learnMore: "Learn more",
+      securityNote: "Credentials encrypted, execution surface never exposed.",
+    },
     tenant: {},
   },
 } as never;
@@ -91,6 +99,27 @@ describe("console tenant routing (open-connector-mt)", () => {
     const markup = renderApp("/me");
     expect(markup).not.toContain("user-shell-main");
     expect(markup).toContain("unlock-screen");
+    tenantMode = "oidc";
+  });
+
+  // add-welcome-entry: the tenant-mode root path must not show the admin wall —
+  // it redirects to /me. <Navigate> renders nothing and (under static render)
+  // never runs its effect, so the proof is "nothing admin-shaped rendered".
+  it("never renders the admin wall on the tenant-mode root path", () => {
+    tenantMode = "oidc";
+    failingAdminBackend();
+    const markup = renderApp("/");
+    expect(markup).not.toContain("unlock-screen");
+    expect(markup).not.toContain("app-shell");
+    expect(markup.trim()).toBe("");
+  });
+
+  it("keeps the upstream root-path behavior when tenancy is off", () => {
+    tenantMode = "off";
+    failingAdminBackend();
+    const markup = renderApp("/");
+    expect(markup).toContain("unlock-screen");
+    expect(markup).not.toContain("user-shell");
     tenantMode = "oidc";
   });
 });

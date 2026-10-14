@@ -851,7 +851,12 @@
   },
   "userPanel": {
     "brand": "Wanxing Connector",
-    "signInIntro": "Store your SaaS connections securely and mint access tokens for your agent platforms.",
+    "signInIntro": "Connect an account once and your agent gains a thousand hands — 1,500+ external services, tens of thousands of prebuilt actions, one credential vault.",
+    "stepSignIn": "Sign in with your unified account",
+    "stepConnect": "Add your SaaS connections (GitHub, Feishu, DingTalk…)",
+    "stepMint": "Mint an access token and paste it into Yizuo",
+    "learnMore": "Learn more",
+    "securityNote": "Credentials encrypted, run logs redacted, execution surface never exposed to the internet.",
     "noAuthGroup": "Auth-free data sources (no setup needed, ready to use)",
     "patHint": "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
     "backToAdmin": "Back to admin console"

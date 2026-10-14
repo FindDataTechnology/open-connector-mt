@@ -207,6 +207,12 @@ export function App(): ReactNode {
   // admin unlock wall — a signed-in user has no admin token by definition — so
   // it renders its own shell that loads what IT needs (the provider list).
   const onUserPanel = tenantMode && location.pathname.startsWith("/me");
+  // add-welcome-entry: in tenant mode the root path belongs to the end user,
+  // not the admin console — without this the anonymous "/" (the official-site
+  // demo link and the 壹座 app-center card target) shows the admin token wall.
+  // Admin routes stay on their own paths (/overview, ...); TENANCY=off is
+  // untouched because tenantMode is false there.
+  const onRootPath = tenantMode && location.pathname === "/";
   const [data, setData] = useState<AppData>(emptyData);
   const [authSession, setAuthSession] = useState<AuthSession>({
     adminAuthConfigured: false,
@@ -301,6 +307,15 @@ export function App(): ReactNode {
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : t("shell.logoutFailed"));
       });
+  }
+
+  // add-welcome-entry: redirect before the locked check so the root path never
+  // renders the unlock wall in tenant mode. `replace` keeps the back button out
+  // of a "/"<->"/me" ping-pong. The redirect deliberately does not wait for
+  // tenantConfig to settle: the one-frame transition is the same pre-existing
+  // behavior every tenant route has before the config fetch resolves.
+  if (onRootPath) {
+    return <Navigate to="/me" replace />;
   }
 
   if (onUserPanel) {

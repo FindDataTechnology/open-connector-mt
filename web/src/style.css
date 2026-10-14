@@ -188,6 +188,31 @@
   max-width: 34ch;
   margin: 0;
 }
+/* add-welcome-entry: the three-step journey and its companions on the
+   pre-login card. Steps are self-aligned left so the numbers line up while the
+   card stays centered as a whole. */
+.user-hero-steps {
+  text-align: left;
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--foreground, #223);
+  font-size: 0.9rem;
+  max-width: 36ch;
+}
+.user-hero-learn-more {
+  color: var(--primary, #3a7);
+  font-size: 0.88rem;
+  text-decoration: underline;
+}
+.user-hero-security {
+  color: var(--muted-foreground, #667);
+  font-size: 0.8rem;
+  max-width: 36ch;
+  margin: 0;
+}
 .user-pat-hint {
   color: var(--muted-foreground, #667);
   font-size: 0.85rem;
