@@ -794,6 +794,23 @@ export function createOpenApiDocument(
             allowedConnections: connectionIdArraySchema(
               "Stable connection IDs granted to this stored token. An empty list is unrestricted connection access. A non-empty list matches exact opaque IDs returned by the connection APIs. Virtual no_auth connections do not require grants.",
             ),
+            allowedOperations: jsonSchema.array(
+              jsonSchema.object(
+                {
+                  provider: jsonSchema.string({ description: "Provider service id, e.g. `kingdee`." }),
+                  operationType: jsonSchema.stringEnum("Catalog action class granted for that provider.", [
+                    "read",
+                    "write",
+                    "destructive",
+                  ]),
+                },
+                { required: ["provider", "operationType"] },
+              ),
+              {
+                description:
+                  "Structured `(provider, operationType)` scopes, unioned with `allowedActions`. Empty adds no class grant; non-empty scopes the token even when `allowedActions` is empty. Prefer this over expanding ids: the scope stays valid as the provider grows and never widens into another class.",
+              },
+            ),
           },
           {
             required: ["allowedActions", "blockedActions", "allowedProxies", "allowedConnections"],

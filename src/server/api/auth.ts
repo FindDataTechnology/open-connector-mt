@@ -96,6 +96,11 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
           }
         }
       }
+      // open-connector-mt: the admin credential still identifies the deployment
+      // owner on public tenant paths (the console registers there in both
+      // TENANCY modes and acts as the bootstrap tenant), so mark it for
+      // hasAdminBearer() before the route reads the request.
+      if (adminToken && matchesConfiguredToken(context, adminToken)) adminBearerRequests.add(context.req.raw);
       await next();
       return;
     }

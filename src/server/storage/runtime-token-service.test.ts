@@ -49,6 +49,7 @@ describe("RuntimeTokenService", () => {
       blockedActions: ["github.delete_repository"],
       allowedProxies: ["github"],
       allowedConnections: ["example:work"],
+      allowedOperations: [],
     });
     expect(store.findByHash).toHaveBeenCalledWith(record.tokenHash);
     expect(store.list).not.toHaveBeenCalled();
@@ -86,6 +87,7 @@ describe("RuntimeTokenService", () => {
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: [],
+      allowedOperations: [],
     });
     expect(logger.warn).toHaveBeenCalledWith(
       { tokenId: "token-1", err: expect.any(Error) },
@@ -132,6 +134,72 @@ describe("RuntimeTokenService", () => {
       allowedProxies: [],
       allowedConnections: [],
     });
+  });
+
+  it("carries purpose and parentTokenId through create, list, and resolve", async () => {
+    const service = new RuntimeTokenService(new MemoryRuntimeTokenStore());
+    const created = await service.createToken(
+      "binding:erp-supply/kingdee-cloud",
+      {
+        allowedActions: ["kingdee.*"],
+        blockedActions: [],
+        allowedProxies: [],
+        allowedConnections: [],
+      },
+      {
+        kind: "user_pat",
+        tenantId: "tenant-1",
+        purpose: "binding:erp-supply/kingdee-cloud",
+        parentTokenId: "parent-1",
+      },
+    );
+
+    expect(created.record).toMatchObject({
+      purpose: "binding:erp-supply/kingdee-cloud",
+      parentTokenId: "parent-1",
+    });
+    await expect(service.listTokens()).resolves.toMatchObject([
+      { id: created.record.id, purpose: "binding:erp-supply/kingdee-cloud", parentTokenId: "parent-1" },
+    ]);
+  });
+
+  it("revokes tokens attenuated from the revoked parent", async () => {
+    const store = new MemoryRuntimeTokenStore();
+    const service = new RuntimeTokenService(store);
+    const parent = await service.createToken("chat:explore", undefined, {
+      kind: "user_pat",
+      tenantId: "tenant-1",
+      purpose: "built-in free exploration",
+    });
+    const child = await service.createToken("binding:erp/kingdee", undefined, {
+      kind: "user_pat",
+      tenantId: "tenant-1",
+      purpose: "binding:erp/kingdee",
+      parentTokenId: parent.record.id,
+    });
+    const grandchild = await service.createToken("binding:erp/kingdee-read", undefined, {
+      kind: "user_pat",
+      tenantId: "tenant-1",
+      purpose: "binding:erp/kingdee-read",
+      parentTokenId: child.record.id,
+    });
+    const sibling = await service.createToken("binding:other", undefined, {
+      kind: "user_pat",
+      tenantId: "tenant-1",
+      purpose: "binding:other",
+    });
+
+    await expect(service.revokeToken(parent.record.id)).resolves.toBe(true);
+
+    await expect(service.resolveToken(parent.token)).resolves.toBeUndefined();
+    await expect(service.resolveToken(child.token)).resolves.toBeUndefined();
+    await expect(service.resolveToken(grandchild.token)).resolves.toBeUndefined();
+    // A token derived from someone else survives.
+    await expect(service.resolveToken(sibling.token)).resolves.toBeDefined();
+  });
+
+  it("reports whether the revoked token itself existed", async () => {
+    await expect(new RuntimeTokenService(new MemoryRuntimeTokenStore()).revokeToken("missing")).resolves.toBe(false);
   });
 });
 

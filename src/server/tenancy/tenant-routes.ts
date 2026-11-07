@@ -1,6 +1,6 @@
 import type { CatalogStore } from "../../catalog-store.ts";
 import type { ConnectionService } from "../../connection-service.ts";
-import type { ActionPolicySnapshot } from "../../core/action-policy.ts";
+import type { ActionPolicySnapshot, OperationScope, TokenPolicy } from "../../core/action-policy.ts";
 import type { OAuthFlowService } from "../../oauth/oauth-flow-service.ts";
 import type { RunLog } from "../storage/runtime-store.ts";
 import type { RuntimeTokenService } from "../storage/runtime-token-service.ts";
@@ -20,9 +20,10 @@ import type { Context } from "hono";
  */
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
-import { readTenantPrincipal } from "../api/auth.ts";
-import { jsonError } from "../api/http-utils.ts";
-import { PLATFORM_TENANT_ID } from "./constants.ts";
+import { hasAdminBearer, readRuntimeGrant, readTenantPrincipal } from "../api/auth.ts";
+import { jsonError, readJsonBody } from "../api/http-utils.ts";
+import { policyRequestMaxBytes, readTokenPolicy } from "../api/policy-input.ts";
+import { BOOTSTRAP_TENANT_ID, PLATFORM_TENANT_ID } from "./constants.ts";
 import { currentStoreTenant, runWithTenant } from "./request-context.ts";
 import { readSessionCookieName } from "./tenant-auth.ts";
 
@@ -30,7 +31,12 @@ const oidcStateCookie = "oomol_connect_oidc_pending";
 const oidcPendingMaxAgeSeconds = 600;
 
 export interface TenantRouteOptions {
-  hooks: TenantAuthHooks;
+  /**
+   * OIDC hooks. Present in TENANCY=oidc only; absent in TENANCY=off, where the
+   * console runs against the bootstrap tenant and the admin bearer is the
+   * authority (scoped PATs must mint the same way in both modes).
+   */
+  hooks?: TenantAuthHooks;
   config: TenancyConfig;
   tenants: ITenantStore;
   runtimeTokens: RuntimeTokenService;
@@ -68,14 +74,17 @@ interface RequestPrincipal {
 
 async function requireUser(context: Context, options: TenantRouteOptions): Promise<RequestPrincipal | undefined> {
   // Session cookie first, then PAT/admin bearer via the shared hook resolver.
-  const cookie = context.req.header("cookie") ?? "";
-  const match = new RegExp(`(?:^|;\\s*)${readSessionCookieName()}=([^;]+)`).exec(cookie);
-  if (match) {
-    const identityId = await options.hooks.verifySessionCookie(decodeURIComponent(match[1]));
-    if (identityId) {
-      const identity = await options.tenants.getIdentityById(identityId);
-      if (identity && !identity.disabledAt) {
-        return { tenantId: identity.tenantId, kind: "oidc_session", identityId: identity.id };
+  const hooks = options.hooks;
+  if (hooks) {
+    const cookie = context.req.header("cookie") ?? "";
+    const match = new RegExp(`(?:^|;\\s*)${readSessionCookieName()}=([^;]+)`).exec(cookie);
+    if (match) {
+      const identityId = await hooks.verifySessionCookie(decodeURIComponent(match[1]));
+      if (identityId) {
+        const identity = await options.tenants.getIdentityById(identityId);
+        if (identity && !identity.disabledAt) {
+          return { tenantId: identity.tenantId, kind: "oidc_session", identityId: identity.id };
+        }
       }
     }
   }
@@ -87,6 +96,12 @@ async function requireUser(context: Context, options: TenantRouteOptions): Promi
       identityId: principal.identityId,
       tokenId: principal.tokenId,
     };
+  }
+  // The deployment's admin credential is the owner of the bootstrap tenant, and
+  // TENANCY=off has no other authority (no OIDC hooks, no tenant layer). Both
+  // modes admit it here so scoped-PAT minting and revocation stay reachable.
+  if (hasAdminBearer(context)) {
+    return { tenantId: BOOTSTRAP_TENANT_ID, kind: "admin" };
   }
   return undefined;
 }
@@ -100,7 +115,9 @@ function readB64urlJson<T>(value: string): T {
 }
 
 export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): void {
-  const { hooks, config } = options;
+  const { config } = options;
+  const hooks = options.hooks;
+  const oidcEnabled = config.mode === "oidc" && !!hooks;
 
   // ── Cross-mint CORS helpers (add-connector-account-picker) ──────────────
   // Exact-match origin allowlist (OOMOL_CONNECT_CROSS_MINT_ORIGINS). Only an
@@ -144,13 +161,13 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
       issuer: config.issuer ?? null,
       clientId: config.clientId ?? null,
       localeDefault: config.localeDefault ?? null,
-      loginUrl: config.mode === "oidc" ? "/api/tenant/oidc/authorize" : null,
+      loginUrl: oidcEnabled ? "/api/tenant/oidc/authorize" : null,
     }),
   );
 
   // ── OIDC login (public client, PKCE, discovery-driven token endpoint) ────
   app.get("/api/tenant/oidc/authorize", async (context) => {
-    if (!config.issuer || !config.clientId) {
+    if (!config.issuer || !config.clientId || !oidcEnabled) {
       return jsonError(context, 503, "tenant_oidc_unconfigured", "OIDC login is not configured.");
     }
     const discovery = await fetch(new URL(`${config.issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`), {
@@ -201,7 +218,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
   });
 
   app.get("/api/tenant/oidc/callback", async (context) => {
-    if (!config.issuer || !config.clientId) {
+    if (!hooks || !config.issuer || !config.clientId) {
       return jsonError(context, 503, "tenant_oidc_unconfigured", "OIDC login is not configured.");
     }
     const raw = context.req.header("cookie") ?? "";
@@ -290,7 +307,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
   });
 
   app.post("/api/tenant/logout", (context) => {
-    hooks.clearSession(context);
+    hooks?.clearSession(context);
     return context.json({ ok: true });
   });
 
@@ -384,55 +401,277 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     }
   });
 
-  // ── PATs ────────────────────────────────────────────────────────────────
+  // ── PATs (scoped-pat-grants) ────────────────────────────────────────────
+  // The PAT is the only connector credential the consumer side ever holds, so
+  // the mint is where scope is decided: `allowedActions` / `allowedConnections`
+  // narrow the token to the binding it serves. Both lists are *checked* here —
+  // a rule no catalog action can satisfy, or a connection this tenant does not
+  // own, is rejected outright instead of being silently trimmed (a trimmed
+  // scope would look successful and then deny at execution time).
+  //
+  // Omitted lists keep the upstream meaning: an empty allowlist is unrestricted
+  // (the full-authority PAT that already exists). Only an attenuated mint
+  // inherits its parent's lists instead — see below.
   app.get("/api/tenant/pats", async (context) => {
-    const identityId = (await requireUser(context, options))?.identityId;
-    if (!identityId) return jsonError(context, 403, "forbidden", "PATs belong to signed-in identities.");
-    const identity = await options.tenants.getIdentityById(identityId);
-    if (!identity) return jsonError(context, 404, "identity_not_found", "Identity not found.");
+    const principal = await requireUser(context, options);
+    if (!principal) return jsonError(context, 403, "forbidden", "PATs belong to signed-in identities.");
     const all = await options.runtimeTokens.listTokens();
     return context.json({
       pats: all
-        .filter((t) => t.kind === "user_pat")
-        .map((t) => ({
-          id: (t as { id: string }).id,
-          name: (t as { name: string }).name,
-          lastUsedAt: (t as { lastUsedAt?: string }).lastUsedAt ?? null,
+        .filter((token) => token.kind === "user_pat" && token.tenantId === principal.tenantId)
+        .map((token) => ({
+          id: token.id,
+          name: token.name,
+          purpose: token.purpose ?? null,
+          lastUsedAt: token.lastUsedAt ?? null,
+          allowedActions: token.allowedActions,
+          allowedConnections: token.allowedConnections,
+          allowedOperations: token.allowedOperations ?? [],
+          parentTokenId: token.parentTokenId ?? null,
         })),
     });
   });
 
   app.post("/api/tenant/pats", async (context) => {
     const principal = await requireUser(context, options);
-    if (!principal?.identityId) return jsonError(context, 403, "forbidden", "Sign in with OIDC to mint PATs.");
-    const identity = await options.tenants.getIdentityById(principal.identityId);
-    if (!identity) return jsonError(context, 404, "identity_not_found", "Identity not found.");
-    const body = (await context.req.json().catch(() => ({}))) as { name?: string };
-    const name = body.name?.trim() || "pat";
-    const created = await options.runtimeTokens.createToken(name, emptyPolicy(), {
+    if (!principal) {
+      return jsonError(
+        context,
+        403,
+        "forbidden",
+        "Sign in with OIDC, or present a PAT or the admin token, to mint PATs.",
+      );
+    }
+    if (principal.kind === "service_pat") {
+      // A service token acts for someone else; letting it mint would hand out
+      // credentials the service itself never owns.
+      return jsonError(context, 403, "forbidden", "Service tokens cannot mint PATs.");
+    }
+    const body = await readJsonBody(context, policyRequestMaxBytes);
+    const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "pat";
+    const purpose = typeof body.purpose === "string" ? body.purpose.trim() || undefined : undefined;
+    const requested = readTokenPolicy(body, true);
+    if (
+      requested.blockedActions.length > 0 ||
+      requested.allowedProxies.length > 0 ||
+      (requested.allowedTriggers ?? []).length > 0
+    ) {
+      return jsonError(
+        context,
+        400,
+        "invalid_scope",
+        "PAT scope accepts only allowedActions, allowedOperations and allowedConnections.",
+      );
+    }
+
+    const tenantId = principal.tenantId;
+    let policy: TokenPolicy = requested;
+    let parentTokenId: string | undefined;
+    if (principal.kind === "user_pat") {
+      // Attenuation: a PAT may derive a narrower PAT for itself. Desktop and
+      // headless callers have no browser session, so without this path the only
+      // way to hand a binding its own credential would be to paste a full PAT.
+      if (!purpose) {
+        return jsonError(context, 400, "purpose_required", "Attenuated PATs must state a purpose.");
+      }
+      const parent = readRuntimeGrant(context);
+      if (!parent?.tokenId) {
+        return jsonError(context, 403, "forbidden", "The calling token could not be resolved.");
+      }
+      parentTokenId = parent.tokenId;
+      const parentActions = parent.allowedActions ?? [];
+      const parentOperations = parent.allowedOperations ?? [];
+      const parentConnections = parent.allowedConnections ?? [];
+      const requestedConnections = requested.allowedConnections ?? [];
+      const requestedOperations = requested.allowedOperations ?? [];
+      // Both allowlists (action rules and class scopes) are empty ⇒ the child
+      // stated no action scope at all, so it inherits the parent's whole scope.
+      // Stating either one is a narrowing intent: the omitted one stays empty
+      // rather than silently inheriting the parent's wider list.
+      const scopeStated = requested.allowedActions.length > 0 || requestedOperations.length > 0;
+      const childActions = scopeStated ? requested.allowedActions : parentActions;
+      const childOperations = scopeStated ? requestedOperations : parentOperations;
+      const childConnections = requestedConnections.length > 0 ? requestedConnections : parentConnections;
+      const overreach = childActions.filter(
+        (rule) => !actionRuleWithinParentScope(rule, parentActions, parentOperations, options.catalog),
+      );
+      if (overreach.length > 0) {
+        return jsonError(
+          context,
+          403,
+          "scope_not_attenuated",
+          `Requested scope exceeds the calling token: ${overreach.join(", ")}`,
+        );
+      }
+      const overreachOperations = childOperations.filter(
+        (scope) => !operationWithinParentScope(scope, parentActions, parentOperations),
+      );
+      if (overreachOperations.length > 0) {
+        return jsonError(
+          context,
+          403,
+          "scope_not_attenuated",
+          `Requested scope exceeds the calling token: ${overreachOperations.map(operationLabel).join(", ")}`,
+        );
+      }
+      if (parentConnections.length > 0) {
+        const outside = childConnections.filter((id) => !parentConnections.includes(id));
+        if (outside.length > 0) {
+          return jsonError(
+            context,
+            403,
+            "scope_not_attenuated",
+            `Requested connections exceed the calling token: ${outside.join(", ")}`,
+          );
+        }
+      }
+      // Blocks/proxies/triggers are not part of the request; inherit the
+      // parent's so the child's effective policy can only be narrower.
+      policy = {
+        allowedActions: childActions,
+        blockedActions: parent.blockedActions ?? [],
+        allowedProxies: parent.allowedProxies ?? [],
+        allowedConnections: childConnections,
+        allowedTriggers: parent.allowedTriggers ?? [],
+        allowedOperations: childOperations,
+      };
+    }
+
+    // Satisfiability: a scope the catalog cannot honour is a typo, not a narrow
+    // grant, and a connection id from another tenant must look like a plain
+    // unknown id (no existence oracle).
+    const unsatisfiable = unsatisfiableActionRules(policy.allowedActions, options.catalog);
+    if (unsatisfiable.length > 0) {
+      return jsonError(context, 400, "invalid_scope", `No catalog action matches: ${unsatisfiable.join(", ")}`);
+    }
+    const unsatisfiableOperations = unsatisfiableOperationScopes(policy.allowedOperations ?? [], options.catalog);
+    if (unsatisfiableOperations.length > 0) {
+      return jsonError(
+        context,
+        400,
+        "invalid_scope",
+        `No catalog action matches: ${unsatisfiableOperations.map(operationLabel).join(", ")}`,
+      );
+    }
+    const unknownConnections = await unknownConnectionIds(options, policy.allowedConnections ?? []);
+    if (unknownConnections.length > 0) {
+      return jsonError(context, 400, "invalid_scope", `Unknown connections: ${unknownConnections.join(", ")}`);
+    }
+
+    // Same-name re-mint: union and revoke the replaced token. Bindings re-mint
+    // on every grant extension, so this keeps one live token per name with a
+    // scope that only widens (narrowing is a deliberate revoke + re-mint).
+    // v1 tenancy is one identity per tenant, so (tenant, name, parent) is the
+    // identity's PAT name space.
+    const siblings = (
+      await options.runtimeTokens.listTokens().catch(() => [] as Awaited<ReturnType<RuntimeTokenService["listTokens"]>>)
+    ).filter(
+      (token) =>
+        token.kind === "user_pat" &&
+        token.tenantId === tenantId &&
+        token.name === name &&
+        (token.parentTokenId ?? undefined) === parentTokenId,
+    );
+    const merged: TokenPolicy = siblings.reduce(
+      (acc, token) => ({
+        ...acc,
+        allowedActions: unique([...acc.allowedActions, ...token.allowedActions]),
+        allowedConnections: unique([...(acc.allowedConnections ?? []), ...token.allowedConnections]),
+        allowedOperations: uniqueOperationScopes([
+          ...(acc.allowedOperations ?? []),
+          ...(token.allowedOperations ?? []),
+        ]),
+      }),
+      policy,
+    );
+    for (const replaced of siblings) {
+      // Not cascading: the replacement keeps the union, so anything derived from
+      // the replaced token is still inside its parent's (unchanged or wider) scope.
+      await options.runtimeTokens.revokeToken(replaced.id, { cascade: false });
+    }
+
+    const created = await options.runtimeTokens.createToken(name, merged, {
       kind: "user_pat",
-      tenantId: identity.tenantId,
+      tenantId,
+      purpose,
+      parentTokenId,
     });
     // The plaintext is shown exactly once, in this response.
     return context.json({ token: created.token, id: created.record.id, name: created.record.name });
   });
 
   app.delete("/api/tenant/pats/:id", async (context) => {
+    const principal = await requireUser(context, options);
+    if (!principal) return jsonError(context, 403, "forbidden", "PATs belong to signed-in identities.");
     const id = context.req.param("id");
-    const record = await options.runtimeTokens
-      .listTokens()
-      .then((rows) => rows.find((r) => (r as { id: string }).id === id));
-    if (!record) return jsonError(context, 404, "runtime_token_not_found", `PAT not found: ${id}`);
-    if ((record as { kind?: string }).kind !== "user_pat") {
-      return jsonError(context, 403, "forbidden", "Only user PATs are revocable here.");
-    }
-    const tenantId = (record as { tenantId?: string }).tenantId;
-    if (tenantId && tenantId !== currentStoreTenant()) {
+    const record = await options.runtimeTokens.listTokens().then((rows) => rows.find((row) => row.id === id));
+    if (!record || record.kind !== "user_pat" || record.tenantId !== principal.tenantId) {
+      // Cross-tenant ids answer exactly like missing ones.
       return jsonError(context, 404, "runtime_token_not_found", `PAT not found: ${id}`);
     }
+    // Cascades: a derived token must not outlive the credential it came from.
     await options.runtimeTokens.revokeToken(id);
     await options.tenants.revokeConsentsForToken(id);
     return context.json({ id, revoked: true });
+  });
+
+  // ── Scope introspection (read-only; scoped-pat-grants D2) ───────────────
+  // The consumer needs two facts it cannot derive on its own: why a call was
+  // denied (so it can render "grant this"), and whether the catalog can honour
+  // a binding's declared surface at all. The catalog lives only here, so these
+  // two endpoints are the contract instead of letting the consumer copy it.
+  // Neither executes an action, writes a run, or mutates a token.
+  app.get("/api/tenant/scope-explain", async (context) => {
+    const principal = await requireUser(context, options);
+    if (!principal) return jsonError(context, 401, "unauthorized", "Sign in required.");
+    const actionId = context.req.query("actionId")?.trim();
+    if (!actionId) return jsonError(context, 400, "invalid_input", "actionId is required.");
+    const action = options.catalog.actionsById.get(actionId);
+    // Unknown and denied must be distinguishable: a typo must not render an
+    // authorization card.
+    if (!action) return jsonError(context, 404, "unknown_action", `Unknown action: ${actionId}`);
+    const decision = (await options.policyOf(context)).evaluate(action);
+    return context.json({
+      actionId: action.id,
+      provider: action.service,
+      operationType: action.operationType,
+      allowed: decision.allowed,
+      code: decision.allowed ? null : decision.code,
+      checks: decision.checks,
+    });
+  });
+
+  app.get("/api/tenant/catalog-coverage", async (context) => {
+    const principal = await requireUser(context, options);
+    if (!principal) return jsonError(context, 401, "unauthorized", "Sign in required.");
+    const providerId = context.req.query("provider")?.trim();
+    if (!providerId) return jsonError(context, 400, "invalid_input", "provider is required.");
+    const provider = options.catalog.providers.find((row) => row.service === providerId);
+    if (!provider) return jsonError(context, 404, "unknown_provider", `Unknown provider: ${providerId}`);
+    const requested = readOperationTypes(context.req.query("operations"));
+    if (!requested) {
+      return jsonError(
+        context,
+        400,
+        "invalid_input",
+        "operations must be a comma-separated subset of: read,write,destructive.",
+      );
+    }
+    const operations = requested.map((operation) => {
+      const actions = provider.actions.filter((action) => action.operationType === operation);
+      const executableActionCount = actions.filter((action) => action.execution.locallyExecutable).length;
+      return {
+        operation,
+        covered: executableActionCount > 0,
+        actionCount: actions.length,
+        executableActionCount,
+      };
+    });
+    return context.json({
+      provider: provider.service,
+      operations,
+      gaps: operations.filter((row) => !row.covered).map((row) => row.operation),
+    });
   });
 
   // ── Cross-mint (add-connector-account-picker) ───────────────────────────
@@ -604,4 +843,184 @@ function clampRunLimit(raw: string | undefined): number {
 
 function emptyPolicy() {
   return { allowedActions: [], blockedActions: [], allowedProxies: [], allowedConnections: [] };
+}
+
+/**
+ * Rule matching that mirrors `compileActionRule` in core/action-policy.ts: `*`
+ * matches everything, `service.*` is a prefix match on the literal rule minus
+ * the star, anything else is an exact action id. Duplicating four lines keeps
+ * this module from importing (and thereby being tempted to change) the policy
+ * compiler, whose semantics are upstream.
+ */
+function actionIdMatchesRule(rule: string, actionId: string): boolean {
+  if (rule === "*") return true;
+  if (rule.endsWith(".*")) return actionId.startsWith(rule.slice(0, -1));
+  return actionId === rule;
+}
+
+/** Whether a requested rule stays inside the parent allowlist (empty = unrestricted). */
+function ruleWithinScope(parentRules: readonly string[], rule: string): boolean {
+  if (parentRules.length === 0) return true;
+  return parentRules.some((parentRule) => actionIdMatchesRule(parentRule, rule));
+}
+
+/**
+ * Action-id prefixes present in the catalog, built once per immutable catalog.
+ * A prefix keeps its trailing dot (`"kingdee."`), matching the compiler's
+ * `startsWith(rule.slice(0, -1))` test exactly.
+ */
+const catalogActionPrefixes = new WeakMap<CatalogStore, Set<string>>();
+
+function catalogPrefixes(catalog: CatalogStore): Set<string> {
+  const cached = catalogActionPrefixes.get(catalog);
+  if (cached) return cached;
+  const prefixes = new Set<string>();
+  for (const action of catalog.actions) {
+    for (let at = action.id.indexOf("."); at > 0; at = action.id.indexOf(".", at + 1)) {
+      prefixes.add(action.id.slice(0, at + 1));
+    }
+  }
+  catalogActionPrefixes.set(catalog, prefixes);
+  return prefixes;
+}
+
+/** Rules that can never match a catalog action — a typo, not a narrow grant. */
+function unsatisfiableActionRules(rules: readonly string[], catalog: CatalogStore): string[] {
+  const missing: string[] = [];
+  let prefixes: Set<string> | undefined;
+  for (const rule of rules) {
+    if (rule === "*") continue;
+    if (rule.endsWith(".*")) {
+      prefixes ??= catalogPrefixes(catalog);
+      if (!prefixes.has(rule.slice(0, -1))) missing.push(rule);
+    } else if (!catalog.actionsById.has(rule)) {
+      missing.push(rule);
+    }
+  }
+  return missing;
+}
+
+/** Connection ids this tenant does not own; other tenants' ids look the same as missing ones. */
+async function unknownConnectionIds(options: TenantRouteOptions, ids: readonly string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const known = new Set((await options.connections.listConnections()).map((connection) => connection.id));
+  return ids.filter((id) => !known.has(id));
+}
+
+const operationTypes = ["read", "write", "destructive"] as const;
+
+/** `operations=read,write` query parsing; defaults to the read/write pair. Undefined = invalid. */
+function readOperationTypes(raw: string | undefined): (typeof operationTypes)[number][] | undefined {
+  const requested = (raw ?? "read,write")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const valid = requested.filter((value): value is (typeof operationTypes)[number] =>
+    (operationTypes as readonly string[]).includes(value),
+  );
+  if (valid.length !== requested.length || valid.length === 0) return undefined;
+  return unique(valid);
+}
+
+function unique<T>(values: readonly T[]): T[] {
+  return [...new Set(values)];
+}
+
+/** Canonical text form of an operation scope, the same string the policy `checks` carry. */
+function operationLabel(scope: OperationScope): string {
+  return `${scope.provider}@${scope.operationType}`;
+}
+
+function uniqueOperationScopes(scopes: readonly OperationScope[]): OperationScope[] {
+  const seen = new Set<string>();
+  const unique: OperationScope[] = [];
+  for (const scope of scopes) {
+    const label = operationLabel(scope);
+    if (seen.has(label)) continue;
+    seen.add(label);
+    unique.push(scope);
+  }
+  return unique;
+}
+
+/** Whether a parent's class scopes include this exact `(provider, operationType)`. */
+function coversOperation(scopes: readonly OperationScope[], provider: string, operationType: string): boolean {
+  return scopes.some((scope) => scope.provider === provider && scope.operationType === operationType);
+}
+
+/**
+ * Every `(provider, operationType)` pair the catalog can actually produce.
+ * Cached per catalog so per-operation satisfiability checks stay O(1) instead of
+ * scanning the provider list for each requested scope.
+ */
+const catalogOperationClasses = new WeakMap<CatalogStore, Set<string>>();
+
+function catalogClasses(catalog: CatalogStore): Set<string> {
+  const cached = catalogOperationClasses.get(catalog);
+  if (cached) return cached;
+  const classes = new Set<string>();
+  for (const action of catalog.actions) {
+    classes.add(`${action.service}@${action.operationType}`);
+  }
+  catalogOperationClasses.set(catalog, classes);
+  return classes;
+}
+
+/** Scopes no catalog action can satisfy — an unknown provider or an empty class. */
+function unsatisfiableOperationScopes(scopes: readonly OperationScope[], catalog: CatalogStore): OperationScope[] {
+  if (scopes.length === 0) return [];
+  const classes = catalogClasses(catalog);
+  return scopes.filter((scope) => !classes.has(operationLabel(scope)));
+}
+
+/**
+ * Whether an action rule the child requests is still inside the parent's scope,
+ * where that scope may be expressed as rules, as class tuples, or both.
+ *
+ * A rule the parent covers by tuple must select *only* actions inside those
+ * tuples: `kingdee.*` against a parent holding `(kingdee, read)` is a widening,
+ * because the rule also selects write and destructive actions.
+ */
+function actionRuleWithinParentScope(
+  rule: string,
+  parentActions: readonly string[],
+  parentOperations: readonly OperationScope[],
+  catalog: CatalogStore,
+): boolean {
+  if (parentActions.length === 0 && parentOperations.length === 0) return true;
+  if (parentActions.length > 0 && ruleWithinScope(parentActions, rule)) return true;
+  if (parentOperations.length === 0) return false;
+  const selected = actionsSelectedByRule(rule, catalog);
+  if (!selected) return false;
+  return selected.every((action) => coversOperation(parentOperations, action.service, action.operationType));
+}
+
+/** The catalog actions a rule selects, or undefined when the rule itself is unknown. */
+function actionsSelectedByRule(
+  rule: string,
+  catalog: CatalogStore,
+): readonly { service: string; operationType: string }[] | undefined {
+  if (rule === "*") return catalog.actions;
+  if (rule.endsWith(".*")) {
+    const provider = rule.slice(0, -2);
+    const match = catalog.providers.find((row) => row.service === provider);
+    return match?.actions;
+  }
+  const action = catalog.actionsById.get(rule);
+  return action ? [action] : undefined;
+}
+
+/**
+ * Whether a class scope the child requests is inside the parent's scope. A
+ * parent action rule covers a whole class only when it is `*` or `provider.*`:
+ * an exact-id rule cannot stand in for every action of one class.
+ */
+function operationWithinParentScope(
+  scope: OperationScope,
+  parentActions: readonly string[],
+  parentOperations: readonly OperationScope[],
+): boolean {
+  if (parentActions.length === 0 && parentOperations.length === 0) return true;
+  if (coversOperation(parentOperations, scope.provider, scope.operationType)) return true;
+  return parentActions.some((rule) => rule === "*" || rule === `${scope.provider}.*`);
 }

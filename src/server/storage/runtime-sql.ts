@@ -12,7 +12,7 @@ export type RuntimeRow = Record<string, unknown>;
 
 /** The `runtime_tokens` columns every token query reads back, in the order `readRuntimeTokenRow` decodes. */
 export const runtimeTokenColumns =
-  "id, name, token_hash, allowed_actions, blocked_actions, allowed_proxies, allowed_connections, allowed_triggers, created_at, last_used_at, tenant_id, kind";
+  "id, name, token_hash, allowed_actions, blocked_actions, allowed_proxies, allowed_connections, allowed_triggers, allowed_operations, created_at, last_used_at, tenant_id, kind, purpose, parent_token_id";
 
 /** Read a column the query selected as a string, rejecting anything the schema cannot produce. */
 export function readString(row: RuntimeRow, key: string): string {
@@ -51,6 +51,9 @@ export function readRuntimeTokenRow(row: RuntimeRow): RuntimeTokenRecord {
     allowedProxies: parseJson(readString(row, "allowed_proxies")),
     allowedConnections: parseJson(readOptionalString(row, "allowed_connections") ?? "[]"),
     allowedTriggers: parseJson(readString(row, "allowed_triggers")),
+    // scoped-pat-grants D6: structured `(provider, operationType)` scope. The
+    // column defaults to '[]' so pre-0019 rows decode as unscoped-by-class.
+    allowedOperations: parseJson(readOptionalString(row, "allowed_operations") ?? "[]"),
     createdAt: readString(row, "created_at"),
     lastUsedAt: readOptionalString(row, "last_used_at"),
     tenantId: readOptionalString(row, "tenant_id"),
@@ -60,6 +63,10 @@ export function readRuntimeTokenRow(row: RuntimeRow): RuntimeTokenRecord {
       (readOptionalString(row, "kind") || undefined) === "runtime"
         ? undefined
         : (readOptionalString(row, "kind") as RuntimeTokenRecord["kind"]),
+    // scoped-pat-grants: provenance label (which binding/agent a PAT serves)
+    // and the attenuation parent when this PAT was minted from another PAT.
+    purpose: readOptionalString(row, "purpose"),
+    parentTokenId: readOptionalString(row, "parent_token_id"),
   };
 }
 

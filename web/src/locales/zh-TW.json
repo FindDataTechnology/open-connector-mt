@@ -894,7 +894,10 @@
       "neverUsed": "從未使用",
       "revoke": "撤銷",
       "name": "權杖名稱",
-      "mint": "鑄造權杖"
+      "mint": "鑄造權杖",
+      "purpose": "歸屬",
+      "scopeFull": "全權權杖",
+      "scopeSummary": "{{actions}} 條動作規則 · {{services}} 個服務 · {{connections}} 個連線"
     },
     "testRun": {
       "title": "試跑動作",

@@ -1,4 +1,4 @@
-import type { TokenPolicy } from "../../core/action-policy.ts";
+import type { OperationScope, TokenPolicy } from "../../core/action-policy.ts";
 import type { RuntimeLogger } from "../../core/types.ts";
 
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -14,12 +14,18 @@ export interface RuntimeTokenRecord {
   allowedProxies: string[];
   allowedConnections: string[];
   allowedTriggers?: string[];
+  /** scoped-pat-grants D6: structured `(provider, operationType)` scope, union with allowedActions. */
+  allowedOperations?: OperationScope[];
   createdAt: string;
   lastUsedAt?: string;
   /** open-connector-mt: owning tenant (user_pat), null for service_pat, absent = legacy runtime token. */
   tenantId?: string;
   /** open-connector-mt: absent means the upstream "runtime" kind. */
   kind?: TokenKind;
+  /** scoped-pat-grants: free-text provenance label (which binding/agent this PAT serves). */
+  purpose?: string;
+  /** scoped-pat-grants: set when this PAT was minted by attenuating another PAT. */
+  parentTokenId?: string;
 }
 
 export interface RuntimeTokenSummary {
@@ -33,8 +39,14 @@ export interface RuntimeTokenSummary {
   allowedProxies: string[];
   allowedConnections: string[];
   allowedTriggers?: string[];
+  /** scoped-pat-grants D6: `(provider, operationType)` scope; empty/absent = not scoped by class. */
+  allowedOperations?: OperationScope[];
   createdAt: string;
   lastUsedAt?: string;
+  /** scoped-pat-grants: provenance label, so N PATs on one identity stay distinguishable. */
+  purpose?: string;
+  /** scoped-pat-grants: attenuation parent, if this token was derived from another. */
+  parentTokenId?: string;
 }
 
 export interface RuntimeTokenCreation {
@@ -52,6 +64,15 @@ export interface IRuntimeTokenStore {
 }
 
 const tokenPrefix = "oct_";
+
+/**
+ * Derivation depth cap for revocation cascades (scoped-pat-grants).
+ *
+ * Attenuated PATs are a strict subset of their parent, so a parent must not be
+ * revoked while a live child survives. Real chains are 1–2 deep; the cap keeps a
+ * corrupt parent cycle from looping forever.
+ */
+const revokeCascadeMaxDepth = 4;
 
 export interface RuntimeGrant extends TokenPolicy {
   tokenId: string;
@@ -78,8 +99,8 @@ export class RuntimeTokenService {
       allowedProxies: [],
       allowedConnections: [],
     },
-    /** open-connector-mt: PAT creation passes { kind, tenantId } here. */
-    identity?: { kind?: TokenKind; tenantId?: string },
+    /** open-connector-mt: PAT creation passes { kind, tenantId } here; scoped-pat-grants adds { purpose, parentTokenId }. */
+    identity?: { kind?: TokenKind; tenantId?: string; purpose?: string; parentTokenId?: string },
   ): Promise<RuntimeTokenCreation> {
     const token = `${tokenPrefix}${randomBytes(32).toString("base64url")}`;
     const now = new Date().toISOString();
@@ -92,6 +113,7 @@ export class RuntimeTokenService {
       allowedProxies: policy.allowedProxies,
       allowedConnections: policy.allowedConnections ?? [],
       allowedTriggers: policy.allowedTriggers ?? [],
+      allowedOperations: policy.allowedOperations ?? [],
       createdAt: now,
       ...(identity ?? {}),
     };
@@ -103,8 +125,48 @@ export class RuntimeTokenService {
     return (await this.store.list()).map(summarizeRuntimeToken);
   }
 
-  async revokeToken(id: string): Promise<boolean> {
-    return this.store.revoke(id);
+  /**
+   * Revoke a token and every token attenuated from it (scoped-pat-grants).
+   *
+   * A child's scope is always a subset of its parent's, so revoking the parent
+   * must invalidate the children too — otherwise "revoke this PAT" would silently
+   * leave a narrower-but-live credential behind. Children are found by walking
+   * `parentTokenId`, capped at `revokeCascadeMaxDepth`.
+   *
+   * The return value keeps the upstream meaning: whether the named token existed.
+   *
+   * `cascade: false` retires one token without touching its descendants. Same-name
+   * re-mints use it: the replacement keeps the union of the old scope, so the old
+   * token's children remain within their (unchanged or widened) parent scope.
+   */
+  async revokeToken(id: string, options: { cascade?: boolean } = {}): Promise<boolean> {
+    const removed = await this.store.revoke(id);
+    if (options.cascade === false) {
+      return removed;
+    }
+    const seen = new Set<string>([id]);
+    let frontier = [id];
+    for (let depth = 0; depth < revokeCascadeMaxDepth && frontier.length > 0; depth += 1) {
+      let tokens: RuntimeTokenRecord[];
+      try {
+        tokens = await this.store.list();
+      } catch (error) {
+        // last_used_at-style best effort: an audit nicety must not fail the revoke
+        // the caller asked for. Orphans are reaped by the next revoke of the parent.
+        this.logger?.warn({ tokenId: id, err: error }, "derived token lookup failed during revoke");
+        break;
+      }
+      const next = tokens
+        .filter((record) => record.parentTokenId && frontier.includes(record.parentTokenId) && !seen.has(record.id))
+        .map((record) => record.id);
+      for (const childId of next) {
+        seen.add(childId);
+        await this.store.revoke(childId);
+      }
+      frontier = next;
+    }
+
+    return removed;
   }
 
   async updateTokenPolicy(id: string, policy: TokenPolicy): Promise<RuntimeTokenSummary | undefined> {
@@ -130,6 +192,7 @@ export class RuntimeTokenService {
       allowedProxies: matched.allowedProxies,
       allowedConnections: matched.allowedConnections ?? [],
       allowedTriggers: matched.allowedTriggers ?? [],
+      allowedOperations: matched.allowedOperations ?? [],
       kind: matched.kind,
       tenantId: matched.tenantId,
     };
@@ -165,10 +228,13 @@ export function summarizeRuntimeToken(record: RuntimeTokenRecord): RuntimeTokenS
     allowedProxies: record.allowedProxies,
     allowedConnections: record.allowedConnections,
     allowedTriggers: record.allowedTriggers ?? [],
+    allowedOperations: record.allowedOperations ?? [],
     createdAt: record.createdAt,
     lastUsedAt: record.lastUsedAt,
     tenantId: record.tenantId,
     kind: record.kind,
+    purpose: record.purpose,
+    parentTokenId: record.parentTokenId,
   };
 }
 

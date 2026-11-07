@@ -381,6 +381,66 @@ describe("ActionPolicyService", () => {
   });
 });
 
+describe("Operation scopes (scoped-pat-grants D6)", () => {
+  const readAction: ActionDefinition = { ...action, id: "github.list_issues", name: "list_issues", operationType: "read" };
+  const otherProvider: ActionDefinition = { ...action, id: "kingdee.create_bill", service: "kingdee" };
+
+  function tokenSnapshot(allowedOperations: { provider: string; operationType: "read" | "write" | "destructive" }[]) {
+    return new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: [],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedOperations,
+    });
+  }
+
+  it("scopes a token to one provider and one class", () => {
+    const snapshot = tokenSnapshot([{ provider: "github", operationType: "write" }]);
+    // A class grant is a scope, not an empty allowlist: same-provider read is out.
+    expect(snapshot.evaluate(action)).toEqual({
+      allowed: true,
+      checks: [{ source: "token", outcome: "allow_match", rule: "github@write" }],
+    });
+    expect(snapshot.evaluate(readAction)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+      checks: [{ source: "token", outcome: "allow_miss" }],
+    });
+    expect(snapshot.evaluate(otherProvider)).toMatchObject({ allowed: false, code: "action_not_allowed" });
+  });
+
+  it("unions operation scopes with action rules in the same token layer", () => {
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: ["kingdee.*"],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedOperations: [{ provider: "github", operationType: "read" }],
+    });
+    expect(snapshot.evaluate(readAction)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluate(action)).toMatchObject({ allowed: false });
+    expect(snapshot.evaluate(otherProvider)).toMatchObject({ allowed: true });
+  });
+
+  it("leaves a token with no action rules and no operation scopes unrestricted", () => {
+    const snapshot = tokenSnapshot([]);
+    expect(snapshot.evaluate(action)).toEqual({ allowed: true, checks: [] });
+    expect(snapshot.evaluate(otherProvider)).toEqual({ allowed: true, checks: [] });
+  });
+
+  it("still lets a token rule cover a class scope", () => {
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: ["github.*"],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedOperations: [{ provider: "github", operationType: "read" }],
+    });
+    expect(snapshot.evaluate(readAction)).toEqual({
+      allowed: true,
+      checks: [{ source: "token", outcome: "allow_match", rule: "github.*" }],
+    });
+  });
+});
+
 describe("Trigger policy", () => {
   const rules = { allowedActions: [], blockedActions: [], allowedProxies: [], blockedProxies: [] };
   it("grants Triggers independently and denies legacy tokens by default", () => {

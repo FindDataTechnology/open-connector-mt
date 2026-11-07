@@ -88,6 +88,31 @@
   color: var(--muted-foreground, #667);
   font-size: 0.8rem;
 }
+/* PAT scope (scoped-pat-grants): purpose and the allowlist summary sit next to
+   the name so "which token serves which binding" is answerable at a glance. */
+.user-pat-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.user-pat-purpose {
+  color: var(--muted-foreground, #667);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-pat-scope {
+  color: var(--muted-foreground, #667);
+  font-size: 0.75rem;
+}
+/* Full-authority tokens must never read as "no scope": they are the widest
+   credential the tenant can hand out. */
+.user-pat-scope-full {
+  color: #8a5a00;
+  font-weight: 600;
+}
 .user-connection-form {
   display: flex;
   flex-direction: column;

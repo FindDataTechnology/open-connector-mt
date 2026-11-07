@@ -894,7 +894,10 @@
       "neverUsed": "jamais utilisé",
       "revoke": "Révoquer",
       "name": "Nom du jeton",
-      "mint": "Créer un jeton"
+      "mint": "Créer un jeton",
+      "purpose": "Usage",
+      "scopeFull": "Droits complets",
+      "scopeSummary": "{{actions}} règles d'action · {{services}} services · {{connections}} connexions"
     },
     "testRun": {
       "title": "Tester une action",

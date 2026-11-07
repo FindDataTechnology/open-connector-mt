@@ -303,4 +303,27 @@ describe("RunsCard (add-tenant-runs-card)", () => {
     expect(runTokenLabel({ patName: "agent-pat", caller: "web" }, t)).toBe(" · agent-pat");
     expect(runTokenLabel({ patName: "agent-pat", caller: "mcp" }, t)).toBe(" · agent-pat");
   });
+
+  it("spells out a PAT's scope and never renders full authority as blank", async () => {
+    const { patScopeClass, patScopeLabel } = await import("./user-page");
+    const t = (key: string, params?: Record<string, unknown>) => `${key}:${JSON.stringify(params ?? {})}`;
+
+    // Full authority is the widest credential there is — it must be labeled.
+    const full = { allowedActions: [], allowedConnections: [] };
+    expect(patScopeLabel(full, t)).toBe("tenant.pats.scopeFull:{}");
+    expect(patScopeClass(full)).toBe("user-pat-scope user-pat-scope-full");
+
+    // A scoped token shows how many rules, how many distinct services, and how
+    // many connections it can reach.
+    const scoped = {
+      allowedActions: ["kingdee.*", "kingdee.list_bills", "feishu.create_doc"],
+      allowedConnections: ["conn-1"],
+    };
+    expect(patScopeLabel(scoped, t)).toBe('tenant.pats.scopeSummary:{"actions":3,"services":2,"connections":1}');
+    expect(patScopeClass(scoped)).toBe("user-pat-scope");
+
+    // A connection-only restriction is still a restriction, not full authority.
+    const connectionOnly = { allowedActions: [], allowedConnections: ["conn-1"] };
+    expect(patScopeClass(connectionOnly)).toBe("user-pat-scope");
+  });
 });

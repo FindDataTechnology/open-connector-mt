@@ -35,12 +35,32 @@ export interface PolicyRules {
   blockedTriggers?: string[];
 }
 
+/** The catalog's action classes, as they appear in the manifest. */
+export type OperationType = "read" | "write" | "destructive";
+
+/**
+ * A scope unit at `(provider, operationType)` grain (scoped-pat-grants D6).
+ *
+ * A consumer binds to a *surface*, not to a list of action ids: "payment
+ * provider, read only" stays valid when the provider adds actions, and it never
+ * has to copy the catalog. Rules cannot express this — `kingdee.*` grants write
+ * and destructive too, and enumerating ids overflows the 128-rule cap on large
+ * providers — so the token carries the tuple and the policy layer matches it
+ * against the action's own `service` / `operationType`.
+ */
+export interface OperationScope {
+  provider: string;
+  operationType: OperationType;
+}
+
 export interface TokenPolicy {
   allowedActions: string[];
   blockedActions: string[];
   allowedProxies: string[];
   allowedConnections?: string[];
   allowedTriggers?: string[];
+  /** Union with `allowedActions`: an action matching either allowlist is granted. */
+  allowedOperations?: OperationScope[];
 }
 
 export interface RuntimePolicyState {
@@ -71,6 +91,7 @@ interface CompiledLayer {
   blockedProxies: CompiledRule[];
   allowedTriggers: CompiledRule[];
   blockedTriggers: CompiledRule[];
+  allowedOperations: readonly OperationScope[];
 }
 
 /**
@@ -98,7 +119,7 @@ export class ActionPolicySnapshot {
         allowedProxies: token.allowedProxies,
         blockedProxies: [],
       });
-      const tokenLayer = compileLayer("token", tokenRules);
+      const tokenLayer = compileLayer("token", tokenRules, token.allowedOperations ?? []);
       this.layers.push(tokenLayer);
       this.tokenProxyRules = tokenLayer.allowedProxies;
       this.tokenTriggerRules = (token.allowedTriggers ?? []).map(compileActionRule);
@@ -120,19 +141,34 @@ export class ActionPolicySnapshot {
 
     const checks: PolicyCheck[] = [];
     for (const layer of this.layers) {
-      if (layer.allowedActions.length === 0) {
+      // An allowlist only restricts when it has entries. Operation scopes are
+      // allowlists too: a token that declares `(kingdee, read)` and no rules is
+      // scoped, not unrestricted.
+      if (layer.allowedActions.length === 0 && layer.allowedOperations.length === 0) {
         continue;
       }
       const allowed = layer.allowedActions.find((rule) => rule.matches(action.id));
-      if (!allowed) {
-        return {
-          allowed: false,
-          code: "action_not_allowed",
-          message: `${action.id} is not included in the local action allowlist.`,
-          checks: [...checks, { source: layer.source, outcome: "allow_miss" }],
-        };
+      if (allowed) {
+        checks.push({ source: layer.source, outcome: "allow_match", rule: allowed.pattern });
+        continue;
       }
-      checks.push({ source: layer.source, outcome: "allow_match", rule: allowed.pattern });
+      const operation = layer.allowedOperations.find(
+        (scope) => scope.provider === action.service && scope.operationType === action.operationType,
+      );
+      if (operation) {
+        checks.push({
+          source: layer.source,
+          outcome: "allow_match",
+          rule: `${operation.provider}@${operation.operationType}`,
+        });
+        continue;
+      }
+      return {
+        allowed: false,
+        code: "action_not_allowed",
+        message: `${action.id} is not included in the local action allowlist.`,
+        checks: [...checks, { source: layer.source, outcome: "allow_miss" }],
+      };
     }
 
     return { allowed: true, checks };
@@ -312,7 +348,7 @@ function immutablePolicyRules(rules: PolicyRules): PolicyRules {
   return Object.freeze(immutable);
 }
 
-function compileLayer(source: PolicySource, rules: PolicyRules): CompiledLayer {
+function compileLayer(source: PolicySource, rules: PolicyRules, operations: readonly OperationScope[] = []): CompiledLayer {
   return {
     source,
     allowedActions: rules.allowedActions.map(compileActionRule),
@@ -321,6 +357,7 @@ function compileLayer(source: PolicySource, rules: PolicyRules): CompiledLayer {
     blockedProxies: rules.blockedProxies.map(compileProxyRule),
     allowedTriggers: (rules.allowedTriggers ?? []).map(compileActionRule),
     blockedTriggers: (rules.blockedTriggers ?? []).map(compileActionRule),
+    allowedOperations: Object.freeze(operations.map((scope) => Object.freeze({ ...scope }))),
   };
 }
 

@@ -7,6 +7,7 @@ import type { ITransitFileService } from "./files/transit-file-store.ts";
 import type { ISecretCodec } from "./secrets/secret-codec-core.ts";
 import type { RuntimeDatabase } from "./storage/runtime-database.ts";
 import type { TenantStore } from "./storage/tenant-store.ts";
+import type { TenancyConfig } from "./tenancy/constants.ts";
 import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 import type { Hono } from "hono";
 
@@ -44,6 +45,8 @@ export interface ConnectAppOptions {
   tenantAuth?: TenantAuthHooks;
   /** open-connector-mt: tenant registry for the console routes. */
   tenantStore?: TenantStore;
+  /** open-connector-mt: resolved tenancy settings (OIDC hooks absent in off mode). */
+  tenancy?: TenancyConfig;
   actionPolicy?: ActionPolicyService;
   registerStaticRoutes?: (app: Hono) => void;
   logger?: RuntimeLogger;
@@ -150,6 +153,7 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
       oauthClientConfigs,
       tenantAuth: options.tenantAuth,
       tenantStore: options.runtimeDatabase.tenantStore,
+      tenancy: options.tenancy,
       oauthFlow,
       actions,
       triggers,

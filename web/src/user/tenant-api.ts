@@ -31,7 +31,15 @@ export interface TenantConnection {
 export interface TenantPat {
   id: string;
   name: string;
+  /** Free-text label the caller set when minting (e.g. the binding it serves). */
+  purpose: string | null;
   lastUsedAt: string | null;
+  /** Action allowlist; empty together with an empty connection allowlist means full authority. */
+  allowedActions: string[];
+  /** Connection allowlist; empty means no connection restriction. */
+  allowedConnections: string[];
+  /** Set on tokens derived from this one via the attenuated mint. */
+  parentTokenId: string | null;
 }
 
 /** Run log as the tenant is allowed to see it (projected server-side). */
