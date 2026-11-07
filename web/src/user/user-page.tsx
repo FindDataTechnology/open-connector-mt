@@ -489,7 +489,7 @@ function PatsCard(): ReactNode {
  * provider and connection in the tenant. That is the widest possible credential,
  * so the row says so instead of rendering blank.
  */
-export function patScopeClass(pat: TenantPat): string {
+export function patScopeClass(pat: Pick<TenantPat, "allowedActions" | "allowedConnections">): string {
   return pat.allowedActions.length === 0 && pat.allowedConnections.length === 0
     ? "user-pat-scope user-pat-scope-full"
     : "user-pat-scope";
