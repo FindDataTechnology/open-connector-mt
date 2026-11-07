@@ -27,6 +27,7 @@ describe("policy input", () => {
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: [],
+      allowedOperations: [],
     });
     expect(() => readTokenPolicy({})).toThrow("allowedActions must be an array of strings");
   });
@@ -38,6 +39,7 @@ describe("policy input", () => {
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: [],
+      allowedOperations: [],
     });
     expect(
       readTokenPolicy({ allowedActions: [], blockedActions: [], allowedProxies: [], allowedConnections: [] }),
@@ -47,6 +49,7 @@ describe("policy input", () => {
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: [],
+      allowedOperations: [],
     });
   });
 
@@ -70,6 +73,7 @@ describe("policy input", () => {
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: ["connection-work", "01J0CONNECTIONPERSONAL"],
+      allowedOperations: [],
     });
   });
 

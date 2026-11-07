@@ -19,6 +19,7 @@ import type { IRuntimePolicyStore } from "./storage/runtime-policy-store.ts";
 import type { RunLogCaller, RunLogListInput } from "./storage/runtime-store.ts";
 import type { RuntimeGrant, RuntimeTokenService } from "./storage/runtime-token-service.ts";
 import type { TenantStore } from "./storage/tenant-store.ts";
+import type { TenancyConfig } from "./tenancy/constants.ts";
 import type { TenantAuthHooks } from "./tenancy/tenant-auth.ts";
 import type { Context, MiddlewareHandler } from "hono";
 
@@ -75,6 +76,7 @@ import { TransitFileError } from "./files/transit-file-store.ts";
 import { ProxyRunner } from "./proxy/proxy-runner.ts";
 import { decodeRunLogCursor } from "./storage/runtime-store.ts";
 import { summarizeRuntimeToken } from "./storage/runtime-token-service.ts";
+import { readTenancyConfig } from "./tenancy/constants.ts";
 import { registerTenantRoutes } from "./tenancy/tenant-routes.ts";
 
 type McpModule = typeof import("../mcp.ts");
@@ -140,9 +142,11 @@ export interface IConnectServerOptions {
   transitFiles: ITransitFileService;
   uploadTransitFile?: (request: Request) => Promise<TransitFileUpload>;
   auth?: LocalAuthOptions;
-  /** open-connector-mt: tenant hooks + registry; console routes mount only when hooks exist. */
+  /** open-connector-mt: tenant hooks + registry; console routes mount whenever a tenant store exists. */
   tenantAuth?: TenantAuthHooks;
   tenantStore?: TenantStore;
+  /** open-connector-mt: resolved tenancy settings (OIDC hooks absent in off mode). */
+  tenancy?: TenancyConfig;
   actionPolicy?: ActionPolicyService;
   runtimePolicyStore: IRuntimePolicyStore;
   actionSearch?: ActionSearchIndexProvider;
@@ -207,11 +211,14 @@ export class ConnectServer {
     }
     app.use("*", createLocalAuthMiddleware(auth));
     // open-connector-mt: tenant console routes (self-authenticating under /api/tenant/*).
-    if (this.options.tenantAuth && this.options.tenantStore) {
+    // Registered in both modes: in TENANCY=off there are no OIDC hooks, the admin
+    // bearer acts as the bootstrap tenant, and scoped-PAT minting/enforcement must
+    // behave identically (scoped-pat-grants).
+    if (this.options.tenantStore) {
       const hooks = this.options.tenantAuth;
       registerTenantRoutes(app, {
         hooks,
-        config: hooks.config,
+        config: hooks?.config ?? this.options.tenancy ?? readTenancyConfig(),
         tenants: this.options.tenantStore,
         runtimeTokens: this.options.runtimeTokens,
         oauthFlow: this.options.oauthFlow,

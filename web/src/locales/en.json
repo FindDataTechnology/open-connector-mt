@@ -894,7 +894,10 @@
       "neverUsed": "never used",
       "revoke": "Revoke",
       "name": "Token name",
-      "mint": "Mint token"
+      "mint": "Mint token",
+      "purpose": "Purpose",
+      "scopeFull": "Full authority",
+      "scopeSummary": "{{actions}} action rules · {{services}} services · {{connections}} connections"
     },
     "testRun": {
       "title": "Test an action",

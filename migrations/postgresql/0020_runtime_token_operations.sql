@@ -1,0 +1,15 @@
+-- scoped-pat-grants D6: a token may be scoped at `(provider, operationType)`
+-- grain instead of by action ids:
+--
+--   allowed_operations  JSON array of {provider, operationType}, unioned with
+--                       allowed_actions at evaluation time.
+--
+-- Why a column and not expanded rules: `kingdee.*` cannot express "read only"
+-- (it also grants write and destructive), and enumerating every action id both
+-- overflows the 128-rule request cap on large providers and freezes the scope at
+-- mint time, so actions added later would silently fall outside a grant the user
+-- already approved.
+--
+-- Defaults to '[]': existing rows keep their exact upstream meaning (an empty
+-- allowlist is unrestricted), and TENANCY=off stays byte-compatible.
+alter table runtime_tokens add column allowed_operations text not null default '[]';

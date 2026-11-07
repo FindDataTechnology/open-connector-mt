@@ -1126,6 +1126,9 @@ describe("OAuthFlowService", () => {
 
   it("stores the token returned by a provider OAuth runtime", async () => {
     let callbackParameters: Record<string, string> | undefined;
+    // Relative, not a literal: a fixed expiry silently turns this fixture into
+    // "expired access token" once the calendar passes it.
+    const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
     const services = createServices([oauthProvider], {
       oauthRuntime: {
         async exchangeCode(input) {
@@ -1134,7 +1137,7 @@ describe("OAuthFlowService", () => {
             accessToken: "provider-access-token",
             refreshToken: "provider-access-token",
             tokenType: "Bearer",
-            expiresAt: "2026-10-30T00:00:00.000Z",
+            expiresAt,
             providerSecret: { inventory: "provider-owned" },
             metadata: { permissions: "read,write" },
           };
@@ -1159,7 +1162,7 @@ describe("OAuthFlowService", () => {
       authType: "oauth2",
       accessToken: "provider-access-token",
       refreshToken: "provider-access-token",
-      expiresAt: "2026-10-30T00:00:00.000Z",
+      expiresAt,
       providerSecret: { inventory: "provider-owned" },
       metadata: { permissions: "read,write" },
     });

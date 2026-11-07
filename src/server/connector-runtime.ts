@@ -236,6 +236,7 @@ async function openRuntime(options: ConnectorRuntimeOptions): Promise<ConnectorR
       runtimeToken: options.runtimeToken,
       verifyRuntimeJwt,
       tenantAuth,
+      tenancy: options.tenancy,
       actionPolicy: new ActionPolicyService(options.actionPolicy),
       allowedCustomOAuth: options.allowedCustomOAuth,
       logger: options.logger,

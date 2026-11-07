@@ -62,6 +62,8 @@ describe("SqliteRuntimeDatabase", () => {
       "0016_trigger_policy.sql",
       "0017_trigger_subscriptions.sql",
       "0018_multi_tenancy.sql",
+      "0019_pat_scope_grants.sql",
+      "0020_runtime_token_operations.sql",
     ];
     expect(entries.filter((entry) => entry.message === "sqlite migration started")).toEqual(
       migrations.map((migration) => ({ fields: { migration }, message: "sqlite migration started" })),
@@ -546,6 +548,7 @@ describe("SqliteRuntimeDatabase", () => {
       "0016_trigger_policy.sql",
       "0017_trigger_subscriptions.sql",
       "0018_multi_tenancy.sql",
+      "0019_pat_scope_grants.sql",
     ]) {
       raw.exec(readFileSync(new URL(`../../../../migrations/${migration}`, import.meta.url), "utf8"));
     }
@@ -885,7 +888,12 @@ describe("SqliteRuntimeDatabase", () => {
           allowedConnections: ["example:work"],
         };
         await second.runtimeTokenStore.updatePolicy(tokenId, policy);
-        await expect(tokens.resolveToken(token)).resolves.toEqual({ tokenId, ...policy, allowedTriggers: [] });
+        await expect(tokens.resolveToken(token)).resolves.toEqual({
+          tokenId,
+          ...policy,
+          allowedTriggers: [],
+          allowedOperations: [],
+        });
       } finally {
         second.close();
       }

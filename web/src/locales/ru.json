@@ -894,7 +894,10 @@
       "neverUsed": "не использовался",
       "revoke": "Отозвать",
       "name": "Имя токена",
-      "mint": "Создать"
+      "mint": "Создать",
+      "purpose": "Назначение",
+      "scopeFull": "Полные права",
+      "scopeSummary": "Правил действий: {{actions}} · сервисов: {{services}} · подключений: {{connections}}"
     },
     "testRun": {
       "title": "Тест действия",

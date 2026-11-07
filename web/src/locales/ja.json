@@ -894,7 +894,10 @@
       "neverUsed": "未使用",
       "revoke": "失効",
       "name": "トークン名",
-      "mint": "発行"
+      "mint": "発行",
+      "purpose": "用途",
+      "scopeFull": "全権トークン",
+      "scopeSummary": "アクション規則 {{actions}} 件 · サービス {{services}} 件 · 接続 {{connections}} 件"
     },
     "testRun": {
       "title": "アクションをテスト",

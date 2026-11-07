@@ -459,6 +459,10 @@ function PatsCard(): ReactNode {
           {pats.map((p) => (
             <li key={p.id}>
               <span className="user-connection-name">{p.name}</span>
+              <div className="user-pat-meta">
+                {p.purpose ? <span className="user-pat-purpose">{p.purpose}</span> : null}
+                <span className={patScopeClass(p)}>{patScopeLabel(p, t)}</span>
+              </div>
               <span className="user-pat-used">{p.lastUsedAt ?? t("tenant.pats.neverUsed")}</span>
               <Button variant="ghost" size="sm" onClick={() => revoke(p.id)}>
                 <Trash2 size={14} /> {t("tenant.pats.revoke")}
@@ -478,6 +482,38 @@ function PatsCard(): ReactNode {
       </div>
     </section>
   );
+}
+
+/**
+ * An empty allowlist pair means "no restriction", i.e. the token can reach every
+ * provider and connection in the tenant. That is the widest possible credential,
+ * so the row says so instead of rendering blank.
+ */
+export function patScopeClass(pat: TenantPat): string {
+  return pat.allowedActions.length === 0 && pat.allowedConnections.length === 0
+    ? "user-pat-scope user-pat-scope-full"
+    : "user-pat-scope";
+}
+
+export function patScopeLabel(
+  pat: Pick<TenantPat, "allowedActions" | "allowedConnections">,
+  t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+  if (pat.allowedActions.length === 0 && pat.allowedConnections.length === 0) {
+    return t("tenant.pats.scopeFull");
+  }
+  const services = new Set(
+    pat.allowedActions.map((rule) => {
+      if (rule === "*") return "*";
+      const dot = rule.indexOf(".");
+      return dot > 0 ? rule.slice(0, dot) : rule;
+    }),
+  );
+  return t("tenant.pats.scopeSummary", {
+    actions: pat.allowedActions.length,
+    services: services.size,
+    connections: pat.allowedConnections.length,
+  });
 }
 
 function TestRunCard(props: { connectionNames: string[] }): ReactNode {

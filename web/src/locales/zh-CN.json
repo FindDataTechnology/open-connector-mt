@@ -894,7 +894,10 @@
       "neverUsed": "从未使用",
       "revoke": "撤销",
       "name": "令牌名称",
-      "mint": "铸造令牌"
+      "mint": "铸造令牌",
+      "purpose": "归属",
+      "scopeFull": "全权令牌",
+      "scopeSummary": "{{actions}} 条动作规则 · {{services}} 个服务 · {{connections}} 个连接"
     },
     "testRun": {
       "title": "试跑动作",
