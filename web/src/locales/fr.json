@@ -922,7 +922,7 @@
     "connected": "Connecté · {{count}}",
     "authFree": "Sans identifiant",
     "empty": "Aucun service ne correspond.",
-    "matchCount": "{{count}} services",
+    "matchCount": "{{count}} services disponibles",
     "showMore": "Afficher {{count}} de plus"
   }
 }
