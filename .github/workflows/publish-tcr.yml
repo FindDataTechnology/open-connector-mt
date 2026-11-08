@@ -45,6 +45,12 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: true
+          # Provenance baked into the image (BUILD-INFO.json), same shape as the
+          # platform image: lets the deploy verifier compare the running commit
+          # against what the manifest comment claims.
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            BUILD_REF=${{ github.ref_name }}
           tags: |
             hkccr.ccs.tencentyun.com/yizuo/open-connector-mt:sha-${{ steps.meta.outputs.short }}
             hkccr.ccs.tencentyun.com/yizuo/open-connector-mt:main
