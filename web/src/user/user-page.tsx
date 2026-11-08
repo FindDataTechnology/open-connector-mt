@@ -10,9 +10,10 @@ import type { ReactNode } from "react";
 
 import { useTranslate, useLang } from "@embra/i18n/react";
 import { KeyRound, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../api";
 import { Badge, EmptyState, InlineError, StatusDot } from "../shared-ui";
+import { CatalogCard } from "./connector-catalog";
 import { tenantApi } from "./tenant-api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +23,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type LoadState = "loading" | "ready" | "error";
 
-type ProviderOption = { service: string; displayName: string; authTypes: string[] };
+/**
+ * The catalog row the tenant console renders. `/v1/providers` already carries
+ * the icon, homepage and categories; the panel keeps them because the app
+ * directory shows a card per provider (icon + category), not just a name.
+ */
+export type ProviderOption = {
+  service: string;
+  displayName: string;
+  authTypes: string[];
+  iconUrl?: string | null;
+  homepageUrl?: string | null;
+  categories?: string[];
+};
 
 /**
  * Providers a tenant can actually configure. Auth-free-only entries (no api_key,
@@ -145,7 +158,8 @@ export function SignInCard(): ReactNode {
   );
 }
 
-/** Signed-in layout: PATs first (the only cross-platform output), then connections, then test-run. */
+/** Signed-in layout: PATs first (the only cross-platform output), then the app
+ *  directory (the browse side of connecting), then connections, then test-run. */
 export function UserPanelBody(props: {
   session: TenantSession;
   providers: ProviderOption[];
@@ -157,6 +171,10 @@ export function UserPanelBody(props: {
   const t = useTranslate();
   const own = props.connections.filter((c) => !c.virtual);
   const virtual = props.connections.filter((c) => c.virtual);
+  // A catalog card and the picker inside the connections card are two doors to
+  // one form: the card hands the service down and the form scrolls itself into
+  // view. Neither path knows how to connect on its own.
+  const [requestedService, setRequestedService] = useState<string | null>(null);
 
   return (
     <div className="user-page">
@@ -187,6 +205,13 @@ export function UserPanelBody(props: {
         virtual={virtual}
         state={props.connectionsState}
         onChanged={props.onChanged}
+        requestedService={requestedService}
+        onServiceApplied={() => setRequestedService(null)}
+      />
+      <CatalogCard
+        providers={props.providers}
+        connections={props.connections}
+        onConnect={(service) => setRequestedService(service)}
       />
       <TestRunCard connectionNames={[...new Set(props.connections.map((c) => c.connectionName ?? "default"))]} />
       <RunsCard />
@@ -200,6 +225,8 @@ function ConnectionsCard(props: {
   virtual: TenantConnection[];
   state: LoadState;
   onChanged: () => void;
+  requestedService?: string | null;
+  onServiceApplied?: () => void;
 }): ReactNode {
   const t = useTranslate();
   const [busy, setBusy] = useState(false);
@@ -217,6 +244,21 @@ function ConnectionsCard(props: {
 
   const selectedProvider = pickable.find((p) => p.service === service);
   const supportsOAuth = selectedProvider?.authTypes.includes("oauth2") ?? false;
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // A card in the app directory asked for this service: adopt it and bring the
+  // form into view, because the card the user clicked is above the form.
+  useEffect(() => {
+    if (!props.requestedService) return;
+    const provider = pickable.find((p) => p.service === props.requestedService);
+    if (provider) {
+      setService(provider.service);
+      setAuthType(provider.authTypes.includes("oauth2") ? "oauth2" : "api_key");
+      formRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      formRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+    }
+    props.onServiceApplied?.();
+  }, [props.requestedService, pickable, props.onServiceApplied]);
 
   const create = async () => {
     if (!service) return;
@@ -317,7 +359,7 @@ function ConnectionsCard(props: {
         </>
       )}
       {formError ? <InlineError message={formError} /> : null}
-      <div className="user-connection-form">
+      <div className="user-connection-form" ref={formRef}>
         <div className="user-form-row">
           <Label>{t("tenant.connections.provider")}</Label>
           <Button variant="outline" onClick={() => setPickerOpen(true)}>

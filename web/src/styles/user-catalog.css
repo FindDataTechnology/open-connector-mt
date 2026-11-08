@@ -1,0 +1,215 @@
+/* ── App directory (/me catalog) ─────────────────────────────────────────────
+   One card per connectable provider. The wall is a hairline grid — 1px gaps over
+   the border color, so the grid lines are the container rather than 60 separate
+   boxes — because the tenant already scans this console as panels, and 60
+   soft-shadowed cards would read as a marketing page instead of a tool. */
+
+.user-catalog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.user-catalog-intro {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.user-catalog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.user-catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 260px;
+  max-width: 420px;
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+.user-catalog-search:focus-within {
+  border-color: var(--ring);
+  outline: 2px solid color-mix(in oklab, var(--ring) 35%, transparent);
+  outline-offset: 1px;
+}
+.user-catalog-search input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+}
+.user-catalog-search input:focus {
+  outline: none;
+}
+.user-catalog-search input::placeholder {
+  color: var(--muted-foreground);
+}
+.user-catalog-search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+.user-catalog-count {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.user-catalog-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.user-catalog-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+.user-catalog-chip:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.user-catalog-chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.user-catalog-chip.active {
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  color: var(--foreground);
+}
+.user-catalog-chip-count {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.user-catalog-chip.active .user-catalog-chip-count {
+  color: var(--foreground);
+}
+
+.user-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.user-catalog-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+}
+.user-catalog-card:hover {
+  background: var(--muted);
+}
+.user-catalog-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.user-catalog-card .provider-icon {
+  grid-row: 1 / span 2;
+}
+.user-catalog-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.user-catalog-card-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-catalog-card-meta {
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-catalog-state {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+}
+.user-catalog-state.is-connected {
+  color: var(--success);
+}
+
+.user-catalog-empty {
+  margin: 0;
+  padding: 14px 2px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.user-catalog-more {
+  align-self: flex-start;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.user-catalog-more:hover {
+  background: var(--muted);
+}
+.user-catalog-more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+@container (max-width: 980px) {
+  .user-catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .user-catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

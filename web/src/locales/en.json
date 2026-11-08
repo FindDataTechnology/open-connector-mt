@@ -911,5 +911,18 @@
       "input": "Input",
       "output": "Output"
     }
+  },
+  "userCatalog": {
+    "title": "App directory",
+    "intro": "{{count}} services you can connect. Click a card to fill the connection form.",
+    "searchPlaceholder": "Search services or categories…",
+    "filterLabel": "Filter by category",
+    "all": "All",
+    "connect": "Connect",
+    "connected": "Connected · {{count}}",
+    "authFree": "No credential needed",
+    "empty": "Nothing matches that search.",
+    "matchCount": "{{count}} services",
+    "showMore": "Show {{count}} more"
   }
 }

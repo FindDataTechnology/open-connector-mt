@@ -911,5 +911,18 @@
       "input": "Entrée",
       "output": "Sortie"
     }
+  },
+  "userCatalog": {
+    "title": "Répertoire des applications",
+    "intro": "{{count}} services connectables. Cliquez une carte pour remplir le formulaire de connexion.",
+    "searchPlaceholder": "Rechercher un service ou une catégorie…",
+    "filterLabel": "Filtrer par catégorie",
+    "all": "Tout",
+    "connect": "Connecter",
+    "connected": "Connecté · {{count}}",
+    "authFree": "Sans identifiant",
+    "empty": "Aucun service ne correspond.",
+    "matchCount": "{{count}} services",
+    "showMore": "Afficher {{count}} de plus"
   }
 }

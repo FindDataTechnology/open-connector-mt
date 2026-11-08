@@ -911,5 +911,18 @@
       "input": "入力",
       "output": "出力"
     }
+  },
+  "userCatalog": {
+    "title": "アプリディレクトリ",
+    "intro": "接続できるサービスは {{count}} 件。カードを選ぶと下の接続フォームに入力されます。",
+    "searchPlaceholder": "サービス名・カテゴリで検索…",
+    "filterLabel": "カテゴリで絞り込む",
+    "all": "すべて",
+    "connect": "接続する",
+    "connected": "接続済み · {{count}}",
+    "authFree": "認証不要",
+    "empty": "該当するサービスがありません。",
+    "matchCount": "{{count}} 件",
+    "showMore": "さらに {{count}} 件を表示"
   }
 }

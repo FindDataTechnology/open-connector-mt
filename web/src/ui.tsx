@@ -45,6 +45,7 @@ import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
 import { tenantApi } from "./user/tenant-api";
 import { useTenantConfig } from "./user/use-tenant-config";
+import type { ProviderOption } from "./user/user-page";
 import { UserPage } from "./user/user-page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -368,7 +369,7 @@ export function showsAdminReturnLink(session: { adminAuthConfigured: boolean; au
 export function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: ThemeMode): void }): ReactNode {
   const t = useTranslate();
   const [theme, setTheme] = useState(props.theme);
-  const [providers, setProviders] = useState<{ service: string; displayName: string; authTypes: string[] }[]>([]);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
   // open-connector-mt: an admin who got here from the unlocked console (or by
   // landing on /me directly) has no way back — AppShell's sidebar is gone in
   // this shell. Only a provable admin session earns the return link.
@@ -382,16 +383,27 @@ export function UserPanelShell(props: { theme: ThemeMode; onThemeChange(theme: T
       .then((r) => (r.ok ? (r.json() as Promise<unknown>) : Promise.resolve([])))
       .then((payload) => {
         if (cancelled) return;
+        // The runtime face already carries iconUrl / homepageUrl / categories.
+        // The panel drops nothing now: the app directory draws a card per
+        // provider, and an icon-less wall is a list of words.
         const raw = (Array.isArray(payload) ? payload : ((payload as { data?: unknown[] })?.data ?? [])) as {
           service: string;
           displayName?: string;
           authTypes?: string[];
+          iconUrl?: string | null;
+          homepageUrl?: string | null;
+          categories?: ({ id?: string; displayName?: string } | string)[];
         }[];
         setProviders(
           raw.map((p) => ({
             service: p.service,
             displayName: p.displayName ?? p.service,
             authTypes: p.authTypes ?? [],
+            iconUrl: p.iconUrl ?? null,
+            homepageUrl: p.homepageUrl ?? null,
+            categories: (p.categories ?? [])
+              .map((category) => (typeof category === "string" ? category : (category.displayName ?? category.id ?? "")))
+              .filter((category): category is string => category !== ""),
           })),
         );
       })

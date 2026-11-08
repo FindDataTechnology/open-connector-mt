@@ -1,4 +1,3 @@
-import type { ProviderDefinition } from "./model";
 import type { ReactNode } from "react";
 
 import { CircleAlert, Inbox } from "lucide-react";
@@ -32,7 +31,19 @@ export function TagList(props: { values: string[]; empty: string }): ReactNode {
   );
 }
 
-export function ProviderIcon(props: { provider: ProviderDefinition; large?: boolean }): ReactNode {
+/**
+ * The fields an icon actually needs. A full ProviderDefinition satisfies it,
+ * and so does the reduced catalog row the tenant panel holds: the icon never
+ * reads the action list, and demanding it forced every catalog card to fake one.
+ */
+export interface ProviderIconTarget {
+  service: string;
+  displayName: string;
+  iconUrl?: string | null;
+  homepageUrl?: string | null;
+}
+
+export function ProviderIcon(props: { provider: ProviderIconTarget; large?: boolean }): ReactNode {
   const letters = providerInitials(props.provider.displayName);
   const iconSource = providerIconSource(props.provider);
   const [failedIconSource, setFailedIconSource] = useState<string | null>(null);
@@ -73,7 +84,7 @@ interface ProviderIconSource {
 }
 
 export function providerIconSource(
-  provider: ProviderDefinition,
+  provider: ProviderIconTarget,
   catalogIconUrls: Readonly<Record<string, string>> = providerIconUrls,
 ): ProviderIconSource | undefined {
   const iconUrl = provider.iconUrl?.trim();
@@ -86,7 +97,7 @@ export function providerIconSource(
     return { kind: "url", value: catalogIconUrl };
   }
 
-  const hostname = providerHomepageHostname(provider.homepageUrl);
+  const hostname = providerHomepageHostname(provider.homepageUrl ?? undefined);
   if (!hostname) {
     return undefined;
   }

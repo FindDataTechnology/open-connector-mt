@@ -911,5 +911,18 @@
       "input": "輸入",
       "output": "輸出"
     }
+  },
+  "userCatalog": {
+    "title": "應用目錄",
+    "intro": "{{count}} 個可連接的服務。點卡片即填入下方連接表單。",
+    "searchPlaceholder": "搜尋服務或分類…",
+    "filterLabel": "依分類篩選",
+    "all": "全部",
+    "connect": "去連接",
+    "connected": "已連接 · {{count}}",
+    "authFree": "免認證",
+    "empty": "沒有符合的服務。",
+    "matchCount": "{{count}} 個服務",
+    "showMore": "再顯示 {{count}} 個"
   }
 }

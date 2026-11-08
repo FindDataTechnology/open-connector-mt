@@ -14,6 +14,7 @@
 @import "./styles/access.css";
 @import "./styles/resources.css";
 @import "./styles/unlock.css";
+@import "./styles/user-catalog.css";
 
 /* ── open-connector-mt: user panel (/me) ─────────────────────────── */
 .user-page {

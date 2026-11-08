@@ -911,5 +911,18 @@
       "input": "输入",
       "output": "输出"
     }
+  },
+  "userCatalog": {
+    "title": "应用目录",
+    "intro": "{{count}} 个可连接的服务。点卡片即填入下方连接表单。",
+    "searchPlaceholder": "搜索服务或分类…",
+    "filterLabel": "按分类筛选",
+    "all": "全部",
+    "connect": "去连接",
+    "connected": "已连接 · {{count}}",
+    "authFree": "免认证",
+    "empty": "没有匹配的服务。",
+    "matchCount": "{{count}} 个服务",
+    "showMore": "再显示 {{count}} 个"
   }
 }
