@@ -21,5 +21,5 @@
 - [x] 3.4 `npm run build --workspace web` 通过
 - [x] 3.5 `impeccable detect --json` 对三个改动文件返回 `[]`
 - [x] 3.6 视觉验收：桌面 1280（三列 379px×3，图标全部真实加载、已连接置顶绿勾、状态右对齐成列）与窄屏 430（单列 342px、chip 换行、无横向溢出）均已截图确认。**期间修掉两个真缺陷**：`@container` 断点因页面无 `container-type` 祖先而永不生效 → 改 `@media` 1080/720；卡片三行布局右侧留白过大 → 改 `图标|文案|状态` 单行（86px→64px）
-- [ ] 3.7 `openspec validate add-app-directory --strict`
-- [ ] 3.8 出片并上产（平台镜像 + 连接器镜像），在壹座侧确认入口可达
+- [x] 3.7 `openspec validate add-app-directory --strict` → valid
+- [x] 3.8 出片并上产：连接器 `sha-5e446ab`（digest f05f39a5，pod 内 `user-catalog-grid` + 断点规则 + 单行卡片均已核）；壹座 `sha-668c146`（platform/facet/demo 三份同片，pod 内 `connector-browse-catalog` + 「浏览应用目录」文案已核）。入口链接指向 `connectorUrl + mePath + #catalog`
