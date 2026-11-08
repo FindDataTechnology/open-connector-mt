@@ -96,6 +96,12 @@ spec:
                   key: databaseUrl
                   optional: false
             {{- end }}
+            {{- if .Values.insecureDevelopment }}
+            # open-connector-mt: the admin surface fails closed when no admin token is set, so the
+            # chart's existing insecureDevelopment opt-in must also turn the open mode back on.
+            - name: OOMOL_CONNECT_ALLOW_OPEN_ADMIN
+              value: "1"
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

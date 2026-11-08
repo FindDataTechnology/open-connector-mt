@@ -1,6 +1,8 @@
+import type { LocalAuthOptions } from "./auth.ts";
+
 import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
-import { createLocalAuthMiddleware } from "./auth.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createLocalAuthMiddleware, readLocalAuthSession } from "./auth.ts";
 
 describe("createLocalAuthMiddleware", () => {
   it("fails closed when a runtime token resolver is configured without a token-count callback", async () => {
@@ -194,6 +196,99 @@ describe("createLocalAuthMiddleware", () => {
     );
   });
 });
+
+/**
+ * The admin surface must fail closed: a deployment that forgot to configure an admin token used
+ * to answer `/api/*` to anonymous callers. Anonymous admin access is now only reachable through
+ * the explicit `allowOpenAdmin` opt-in (option or `OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1`).
+ */
+describe("admin scope without an admin token", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects admin requests when no token is configured and no open-admin opt-in is set", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    const app = createAdminApp({ allowOpenAdmin: false });
+
+    expect((await app.request("/api/providers")).status).toBe(401);
+    expect((await app.request("/api/providers", { headers: authorize("Bearer", "guessed") })).status).toBe(401);
+  });
+
+  it("rejects admin requests for a runtime-only deployment unless the open-admin opt-in is set", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    const app = new Hono();
+    app.use(
+      "*",
+      createLocalAuthMiddleware({
+        runtimeToken: "runtime-secret",
+        allowOpenAdmin: false,
+      }),
+    );
+    app.get("/api/providers", (context) => context.json({ ok: true }));
+    app.get("/v1/actions", (context) => context.json({ ok: true }));
+
+    // The admin surface stays closed even though the caller holds the runtime credential.
+    expect((await app.request("/api/providers")).status).toBe(401);
+    expect((await app.request("/api/providers", { headers: authorize("Bearer", "runtime-secret") })).status).toBe(401);
+    // Runtime auth itself keeps working, unchanged.
+    expect((await app.request("/v1/actions", { headers: authorize("Bearer", "runtime-secret") })).status).toBe(200);
+  });
+
+  it("allows admin requests when the open-admin flag is explicitly set", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    const app = createAdminApp({ allowOpenAdmin: true });
+
+    expect((await app.request("/api/providers")).status).toBe(200);
+  });
+
+  it("reads the open-admin opt-in from OOMOL_CONNECT_ALLOW_OPEN_ADMIN", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    expect((await createAdminApp({}).request("/api/providers")).status).toBe(401);
+
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", "1");
+    expect((await createAdminApp({}).request("/api/providers")).status).toBe(200);
+
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", "true");
+    expect((await createAdminApp({}).request("/api/providers")).status).toBe(401);
+  });
+
+  it("allows admin requests with the configured token", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    const app = createAdminApp({ adminToken: "admin-secret" });
+
+    expect((await app.request("/api/providers", { headers: authorize("Bearer", "admin-secret") })).status).toBe(200);
+  });
+
+  it("rejects admin requests with a wrong or missing token when one is configured", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    const app = createAdminApp({ adminToken: "admin-secret", allowOpenAdmin: true });
+
+    // The open-admin opt-in never weakens a configured token.
+    expect((await app.request("/api/providers")).status).toBe(401);
+    expect((await app.request("/api/providers", { headers: authorize("Bearer", "admin-secreT") })).status).toBe(401);
+    expect((await app.request("/api/providers", { headers: authorize("Bearer", "admin-secret") })).status).toBe(200);
+  });
+
+  it("reports the session as locked when no admin token is configured and the opt-in is off", async () => {
+    vi.stubEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN", undefined);
+    expect(await sessionFor({ allowOpenAdmin: false })).toEqual({ adminAuthConfigured: false, authenticated: false });
+    expect(await sessionFor({ allowOpenAdmin: true })).toEqual({ adminAuthConfigured: false, authenticated: true });
+  });
+});
+
+function createAdminApp(options: LocalAuthOptions): Hono {
+  const app = new Hono();
+  app.use("*", createLocalAuthMiddleware(options));
+  app.get("/api/providers", (context) => context.json({ ok: true }));
+  return app;
+}
+
+async function sessionFor(options: LocalAuthOptions): Promise<Awaited<ReturnType<typeof readLocalAuthSession>>> {
+  const app = new Hono();
+  app.get("/api/auth/session", async (context) => context.json(await readLocalAuthSession(context, options)));
+  return (await (await app.request("/api/auth/session")).json()) as Awaited<ReturnType<typeof readLocalAuthSession>>;
+}
 
 function createSchemeApp(): Hono {
   const app = new Hono();

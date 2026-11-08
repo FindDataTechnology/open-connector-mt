@@ -23,6 +23,12 @@ export interface LocalAuthOptions {
   hasRuntimeTokens?(): Promise<boolean>;
   resolveRuntimeToken?(token: string): Promise<RuntimeGrant | undefined>;
   verifyRuntimeJwt?: RuntimeJwtVerifier;
+  /**
+   * Explicit opt-in for serving the admin surface without an admin token.
+   * Defaults to `OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1`; without either, a missing
+   * admin token refuses admin requests instead of opening them.
+   */
+  allowOpenAdmin?: boolean;
   /** open-connector-mt: present only in TENANCY=oidc mode; resolves a TenantPrincipal per request. */
   tenant?: TenantAuthHooks;
 }
@@ -60,11 +66,33 @@ export function effectiveTenantId(principal: TenantPrincipal | undefined): strin
   return principal.actorTenantId ?? principal.tenantId;
 }
 
+/**
+ * Whether this deployment deliberately serves the admin surface without an admin token.
+ *
+ * Upstream read a missing `OOMOL_CONNECT_ADMIN_TOKEN` as "admin auth disabled", so any
+ * deployment that configured only runtime auth still answered `/api/*` to everyone who could
+ * reach the port. Anonymous admin access is now opt-in: either `allowOpenAdmin: true` from an
+ * embedder, or `OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1` for a trusted local machine. Anything else
+ * refuses admin requests.
+ */
+function allowOpenAdmin(options: LocalAuthOptions): boolean {
+  return options.allowOpenAdmin ?? readAllowOpenAdminEnv();
+}
+
+function readAllowOpenAdminEnv(): boolean {
+  // Workers builds have no `process` unless nodejs_compat is enabled; the guard keeps the
+  // module importable there, where the answer is always "no opt-in".
+  const env = typeof process === "undefined" ? undefined : process.env;
+  return (env?.OOMOL_CONNECT_ALLOW_OPEN_ADMIN ?? "").trim() === "1";
+}
+
 export function createLocalAuthMiddleware(options: LocalAuthOptions): MiddlewareHandler {
   const adminToken = normalizeToken(options.adminToken);
+  const openAdmin = allowOpenAdmin(options);
   const runtimeToken = normalizeToken(options.runtimeToken);
   if (
     !adminToken &&
+    openAdmin &&
     !runtimeToken &&
     !options.hasRuntimeTokens &&
     !options.resolveRuntimeToken &&
@@ -172,7 +200,7 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
       });
     }
     if (adminToken && matchesConfiguredToken(context, adminToken)) adminBearerRequests.add(context.req.raw);
-    if (await hasValidToken(context, options, scope)) {
+    if (await hasValidToken(context, options, scope, openAdmin)) {
       if (scope === "admin") {
         await installAdminCookieForBearer(context, options);
       }
@@ -186,7 +214,7 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
     if (
       canUseAdminAuth(context.req.path, context.req.method) &&
       normalizeToken(options.adminToken) &&
-      (await hasValidToken(context, options, "admin"))
+      (await hasValidToken(context, options, "admin", openAdmin))
     ) {
       await installAdminCookieForBearer(context, options);
       await next();
@@ -236,7 +264,9 @@ function isPublicPath(path: string, method: string): boolean {
 export async function readLocalAuthSession(context: Context, options: LocalAuthOptions): Promise<LocalAuthSession> {
   const adminToken = normalizeToken(options.adminToken);
   if (!adminToken) {
-    return { adminAuthConfigured: false, authenticated: true };
+    // No token configured: only an explicit open-admin opt-in counts as signed in,
+    // otherwise the session must not claim access the API will refuse.
+    return { adminAuthConfigured: false, authenticated: allowOpenAdmin(options) };
   }
 
   const authenticated = await hasRequestToken(context, adminToken);
@@ -266,11 +296,18 @@ async function installAdminCookieForBearer(context: Context, options: LocalAuthO
   }
 }
 
-async function hasValidToken(context: Context, options: LocalAuthOptions, scope: AuthScope): Promise<boolean> {
+async function hasValidToken(
+  context: Context,
+  options: LocalAuthOptions,
+  scope: AuthScope,
+  openAdmin: boolean,
+): Promise<boolean> {
   const token = tokenForScope(options, scope);
   if (!token) {
     if (scope === "admin") {
-      return true;
+      // Fail closed: an unconfigured admin token used to open the admin surface
+      // outright, so a runtime-only deployment exposed /api/* and /docs to anyone.
+      return openAdmin;
     }
     const hasRuntimeTokens = options.hasRuntimeTokens
       ? await options.hasRuntimeTokens()

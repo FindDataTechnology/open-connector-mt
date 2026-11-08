@@ -39,6 +39,8 @@ export interface ConnectAppOptions {
   secretCodec: ISecretCodec;
   adminToken?: string;
   runtimeToken?: string;
+  /** Explicit opt-in for serving the admin surface without an admin token (LocalAuthOptions.allowOpenAdmin). */
+  allowOpenAdmin?: boolean;
   allowedCustomOAuth?: string[];
   verifyRuntimeJwt?: RuntimeJwtVerifier;
   /** open-connector-mt: tenant auth hooks (TENANCY=oidc only). */
@@ -167,6 +169,7 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
       auth: {
         adminToken: options.adminToken,
         runtimeToken: options.runtimeToken,
+        allowOpenAdmin: options.allowOpenAdmin,
         hasRuntimeTokens: hasStoredRuntimeTokens,
         resolveRuntimeToken: (token) => runtimeTokens.resolveToken(token),
         verifyRuntimeJwt: options.verifyRuntimeJwt,

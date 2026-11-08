@@ -131,7 +131,15 @@ async function main(): Promise<void> {
         logger.info({ dataDir }, "runtime data directory");
         logger.info({ backend: databaseUrl ? "postgresql" : "sqlite" }, "runtime database ready");
         if (!optionalEnv("OOMOL_CONNECT_ADMIN_TOKEN")) {
-          logger.warn("local admin authentication is disabled; set OOMOL_CONNECT_ADMIN_TOKEN to require bearer tokens");
+          if (optionalEnv("OOMOL_CONNECT_ALLOW_OPEN_ADMIN") === "1") {
+            logger.warn(
+              "admin authentication is disabled by OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1; anyone who can reach this port has administrator access",
+            );
+          } else {
+            logger.warn(
+              "admin API requests are rejected: set OOMOL_CONNECT_ADMIN_TOKEN, or set OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1 to run the admin surface unauthenticated on a trusted local machine",
+            );
+          }
         }
         if (!runtime.runtimeAuthConfigured) {
           logger.warn(
