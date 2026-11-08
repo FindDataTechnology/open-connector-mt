@@ -32,11 +32,13 @@ describe("providerIconSource", () => {
     ).toEqual({ kind: "url", value: "https://static.oomol.com/example.svg" });
   });
 
-  it("uses favicon.im when no icon is mapped", () => {
-    expect(providerIconSource(provider({ service: "example", homepageUrl: "https://example.com/docs" }), {})).toEqual({
-      kind: "url",
-      value: "https://a.favicon.im/example.com?larger=true&throw-error-on-404=true",
-    });
+  it("never reaches a third-party favicon service when no icon is mapped", () => {
+    // tenant-console spec, "目录图标随发行物分发": rendering must not need a
+    // third-party domain. A provider the build could not localise shows its
+    // initials instead of phoning favicon.im.
+    expect(
+      providerIconSource(provider({ service: "example", homepageUrl: "https://example.com/docs" }), {}),
+    ).toBeUndefined();
   });
 
   it("falls back to initials when no icon or valid homepage is available", () => {

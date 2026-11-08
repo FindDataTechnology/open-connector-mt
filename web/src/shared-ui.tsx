@@ -97,28 +97,12 @@ export function providerIconSource(
     return { kind: "url", value: catalogIconUrl };
   }
 
-  const hostname = providerHomepageHostname(provider.homepageUrl ?? undefined);
-  if (!hostname) {
-    return undefined;
-  }
-
-  const searchParams = new URLSearchParams({
-    larger: "true",
-    "throw-error-on-404": "true",
-  });
-  return { kind: "url", value: `https://a.favicon.im/${hostname}?${searchParams.toString()}` };
-}
-
-function providerHomepageHostname(homepageUrl: string | undefined): string | undefined {
-  if (!homepageUrl) {
-    return undefined;
-  }
-
-  try {
-    return new URL(homepageUrl).hostname;
-  } catch {
-    return undefined;
-  }
+  // No third-party fetch at render time (tenant-console spec, "目录图标随发行物分发"):
+  // the build localises every icon it can, and the handful it cannot (5 of 1570 on
+  // 2026-11-08) fall back to initials rather than to a favicon service. A card
+  // without artwork is a cosmetic gap; a card that phones a third-party host on an
+  // intranet deployment is a silent failure nobody can see.
+  return undefined;
 }
 
 interface EmptyStateProps {
