@@ -118,11 +118,10 @@
 }
 .user-catalog-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 2px 12px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 11px 14px;
   border: 0;
   background: var(--card);
   color: inherit;
@@ -137,9 +136,6 @@
 .user-catalog-card:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
-}
-.user-catalog-card .provider-icon {
-  grid-row: 1 / span 2;
 }
 .user-catalog-card-copy {
   display: flex;
@@ -164,13 +160,13 @@
   white-space: nowrap;
 }
 .user-catalog-state {
-  grid-column: 2;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 6px;
+  flex-shrink: 0;
   color: var(--muted-foreground);
   font-size: 11.5px;
+  white-space: nowrap;
 }
 .user-catalog-state.is-connected {
   color: var(--success);
@@ -203,7 +199,7 @@
   outline-offset: 1px;
 }
 
-@container (max-width: 980px) {
+@media (max-width: 1080px) {
   .user-catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
