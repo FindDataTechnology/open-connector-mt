@@ -305,6 +305,34 @@ const listInventoryItemsQuery = `query ShopifyAdminListInventoryItems($first: In
     }
   }
 }`;
+const listPayoutsQuery = `query ShopifyAdminListPayouts($first: Int, $after: String, $query: String) {
+  shopifyPaymentsAccount {
+    payouts(first: $first, after: $after, query: $query) {
+      edges {
+        cursor
+        node {
+          id
+          issuedAt
+          status
+          amount {
+            amount
+            currencyCode
+          }
+          summary {
+            adjustmentsFeeAmount
+            chargesFeeAmount
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+}`;
 const getInventoryItemQuery = `query ShopifyAdminGetInventoryItem($id: ID!) {
   inventoryItem(id: $id) {
     id
@@ -708,6 +736,31 @@ export const shopifyAdminActionHandlers: ProviderActionHandlers<"shopify_admin",
     });
     const order = readNullableObject(readObject(payload.data, "data").order, "order");
     return { order: order ? normalizeOrderDetail(order) : null };
+  },
+  async list_payouts(input, context) {
+    const payload = await requestShopifyAdminGraphQL(context, {
+      query: listPayoutsQuery,
+      variables: connectionVariables(input),
+    });
+    const account = readNullableObject(
+      readObject(payload.data, "data").shopifyPaymentsAccount,
+      "shopifyPaymentsAccount",
+    );
+    if (account === null) {
+      // The shop does not use Shopify Payments: say so instead of returning an
+      // empty list that reads like "no payouts were issued".
+      return {
+        payouts: [],
+        pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+        payoutsAccountAvailable: false,
+      };
+    }
+    const payouts = readObject(account.payouts, "payouts");
+    return {
+      payouts: readEdges(payouts).map((edge) => normalizePayout(edge)),
+      pageInfo: normalizePageInfo(readObject(payouts.pageInfo, "pageInfo")),
+      payoutsAccountAvailable: true,
+    };
   },
   async list_customers(input, context) {
     const payload = await requestShopifyAdminGraphQL(context, {
@@ -1430,6 +1483,23 @@ function normalizeInventoryItemDetail(raw: Record<string, unknown>): Record<stri
     createdAt: optionalString(raw.createdAt) ?? null,
     updatedAt: optionalString(raw.updatedAt) ?? null,
     raw,
+  };
+}
+
+function normalizePayout(edge: Record<string, unknown>): Record<string, unknown> {
+  const payout = readObject(edge.node, "node");
+  const amount = optionalRecord(payout.amount);
+  const summary = optionalRecord(payout.summary);
+  return {
+    id: readRequiredString(payout, "id"),
+    issuedAt: optionalString(payout.issuedAt) ?? null,
+    status: readRequiredString(payout, "status"),
+    amount: optionalString(amount?.amount) ?? null,
+    currencyCode: optionalString(amount?.currencyCode) ?? null,
+    adjustmentsFeeAmount: optionalString(summary?.adjustmentsFeeAmount) ?? null,
+    chargesFeeAmount: optionalString(summary?.chargesFeeAmount) ?? null,
+    cursor: optionalString(edge.cursor) ?? null,
+    raw: payout,
   };
 }
 

@@ -633,6 +633,25 @@ const transitFileOutput = s.requiredObject("A file stored in local connector tra
   mimeType: s.nonEmptyString("The MIME type stored in transit storage."),
 });
 
+const payoutBase = {
+  id: gid,
+  issuedAt: s.nullableString("The payout issue timestamp when returned by Shopify."),
+  status: s.string({ description: "The Shopify Payments payout status." }),
+  amount: s.nullableString("The payout net amount as a decimal string when returned by Shopify."),
+  currencyCode: s.nullableString("The payout currency code when returned by Shopify."),
+  adjustmentsFeeAmount: s.nullableString(
+    "The adjustment fee amount included in the payout as a decimal string when returned by Shopify.",
+  ),
+  chargesFeeAmount: s.nullableString(
+    "The charges fee amount included in the payout as a decimal string when returned by Shopify.",
+  ),
+};
+const payout = s.requiredObject("A normalized Shopify Payments payout.", {
+  ...payoutBase,
+  cursor: s.nullable(cursor),
+  raw: rawObject,
+});
+
 const connectionInput = s.actionInput(
   {
     first,
@@ -664,6 +683,7 @@ export type ShopifyAdminActionName =
   | "get_fulfillment_order"
   | "list_orders"
   | "get_order"
+  | "list_payouts"
   | "list_customers"
   | "get_customer"
   | "list_inventory_items"
@@ -791,6 +811,23 @@ export const shopifyAdminActions: ActionDefinition[] = [
     "Retrieve one Shopify order by GraphQL global ID.",
     s.actionInput({ id: gid }, ["id"], "The Shopify order lookup input."),
     s.actionOutput({ order: s.nullable(orderDetail) }, "The normalized Shopify order response."),
+  ),
+  action(
+    "list_payouts",
+    "read",
+    "List Shopify Payments payouts with optional search query and cursor pagination.",
+    connectionInput,
+    s.actionOutput(
+      {
+        payouts: s.array(payout, { description: "Shopify Payments payouts returned by Shopify." }),
+        pageInfo,
+        payoutsAccountAvailable: s.boolean({
+          description:
+            "Whether the shop has a Shopify Payments account. False means the shop does not use Shopify Payments, so an empty payout list means 'not applicable' rather than 'no payouts'.",
+        }),
+      },
+      "The normalized Shopify Payments payout list response.",
+    ),
   ),
   action(
     "list_customers",
