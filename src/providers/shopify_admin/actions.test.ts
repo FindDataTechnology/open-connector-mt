@@ -89,3 +89,110 @@ describe("shopify_admin action surface", () => {
     expect(cited.filter((name) => !handled.includes(name))).toEqual([]);
   });
 });
+
+/**
+ * 执行器真的跑一遍——不是「目录里有个 .test.ts」就算数。
+ *
+ * `fd-erp-vertical-templates` 的三态台账把 `executor_tests` 定义为
+ * 「该 provider 的执行器有测试」（扫描 `src/providers/<id>/*.test.ts`）。
+ * 如果这个文件只验声明面，那条状态就会因为「有个测试文件」而变绿，而执行器
+ * 一行都没被执行过——这正是「门因为名义上的证据变绿」。所以这里用假 fetcher
+ * 把 list_payouts 真跑一遍，连请求形状一起断言。
+ */
+describe("shopify_admin list_payouts executor", () => {
+  interface Captured {
+    url: string;
+    init: RequestInit | undefined;
+  }
+
+  function contextWith(response: unknown, status = 200) {
+    const captured: Captured[] = [];
+    const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
+      captured.push({ url: String(url), init });
+      return new Response(JSON.stringify(response), {
+        status,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    return {
+      captured,
+      context: {
+        apiKey: "shpat_test_token",
+        shopDomain: "demo-store.myshopify.com",
+        fetcher,
+      },
+    };
+  }
+
+  it("posts a GraphQL query to the versioned endpoint with the access token", async () => {
+    const { captured, context } = contextWith({
+      data: {
+        shopifyPaymentsAccount: {
+          payouts: {
+            edges: [
+              {
+                cursor: "cur-1",
+                node: {
+                  id: "gid://shopify/ShopifyPaymentsPayout/1",
+                  issuedAt: "2026-11-01T00:00:00Z",
+                  status: "PAID",
+                  amount: { amount: "1234.56", currencyCode: "USD" },
+                  summary: { adjustmentsFeeAmount: "1.00", chargesFeeAmount: "20.00" },
+                },
+              },
+            ],
+            pageInfo: {
+              hasNextPage: false,
+              hasPreviousPage: false,
+              startCursor: "cur-1",
+              endCursor: "cur-1",
+            },
+          },
+        },
+      },
+    });
+
+    const result = (await shopifyAdminActionHandlers.list_payouts({ first: 10 }, context)) as {
+      payouts: Record<string, unknown>[];
+      payoutsAccountAvailable: boolean;
+    };
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].url).toBe("https://demo-store.myshopify.com/admin/api/2026-04/graphql.json");
+    expect(captured[0].init?.method).toBe("POST");
+    const headers = captured[0].init?.headers as Record<string, string>;
+    expect(headers["x-shopify-access-token"]).toBe("shpat_test_token");
+    expect(String(captured[0].init?.body)).toContain("shopifyPaymentsAccount");
+
+    expect(result.payoutsAccountAvailable).toBe(true);
+    expect(result.payouts[0]).toMatchObject({
+      id: "gid://shopify/ShopifyPaymentsPayout/1",
+      issuedAt: "2026-11-01T00:00:00Z",
+      status: "PAID",
+      amount: "1234.56",
+      currencyCode: "USD",
+      cursor: "cur-1",
+    });
+  });
+
+  it("reports an absent Shopify Payments account instead of an empty payout list", async () => {
+    const { context } = contextWith({ data: { shopifyPaymentsAccount: null } });
+    const result = (await shopifyAdminActionHandlers.list_payouts({}, context)) as {
+      payouts: unknown[];
+      payoutsAccountAvailable: boolean;
+    };
+    // 关键语义：没有 Shopify Payments ≠ 没有打款。读成后者会静默漏账。
+    expect(result.payoutsAccountAvailable).toBe(false);
+    expect(result.payouts).toEqual([]);
+  });
+
+  it("surfaces an upstream auth failure as a provider request error", async () => {
+    const { context } = contextWith(
+      { errors: [{ message: "Invalid API key or access token" }] },
+      401,
+    );
+    await expect(shopifyAdminActionHandlers.list_payouts({}, context)).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+});
