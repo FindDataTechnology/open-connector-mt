@@ -48,7 +48,32 @@ export interface TenantAuthHooks {
   verifyIdToken(idToken: string): Promise<VerifiedOidcIdentity | undefined>;
   /** Validate a session cookie value; returns the identityId it was issued for. */
   verifySessionCookie(value: string): Promise<string | undefined>;
+  /**
+   * Why did (or didn't) this service token act for the actor?
+   *
+   * `resolve()` collapses every denial into "no principal", which is right for
+   * authorization and useless for repair: "log in once", "ask ops to enable the
+   * OBO tier" and "grant consent" are three different actions for three
+   * different people. This answers the same question WITH its reason, read-only,
+   * so a consumer can say which one it is instead of guessing.
+   *
+   * It must never be more permissive than `resolve()`; both paths call the same
+   * `serviceIdentityOf`, which is what keeps that true.
+   */
+  explainService(context: Context, tokenId: string): Promise<ServiceIdentityResolution>;
 }
+
+/** Every way a service token can fail to act for an actor — deliberately distinguishable. */
+export type ServiceOboDenial =
+  | "actor_header_missing"
+  | "obo_disabled"
+  | "actor_unregistered"
+  | "actor_disabled"
+  | "consent_missing";
+
+export type ServiceIdentityResolution =
+  | { ok: true; tenantId: string; tokenId: string }
+  | { ok: false; code: ServiceOboDenial };
 
 /** The subset of RuntimeGrant the resolver needs (avoids an import cycle with the auth middleware). */
 export interface TenantGrantLike {
@@ -191,7 +216,15 @@ export async function createTenantAuthHooks(deps: {
         return { tenantId: grant.tenantId, kind: "user_pat", tokenId: grant.tokenId };
       }
       if (grant.kind === "service_pat") {
-        return resolveServicePat(context, tenantStore, config, grant.tokenId);
+        const outcome = await serviceIdentityOf(context, tenantStore, config, grant.tokenId);
+        if (!outcome.ok) return undefined;
+        return {
+          tenantId: outcome.tenantId,
+          kind: "service_pat",
+          tokenId: outcome.tokenId,
+          actorTenantId: outcome.tenantId,
+          serviceTokenId: outcome.tokenId,
+        };
       }
       return undefined; // plain runtime tokens carry no tenant authority in MT mode
     }
@@ -206,32 +239,32 @@ export async function createTenantAuthHooks(deps: {
     return { tenantId: identity.tenantId, kind: "oidc_session", identityId: identity.id };
   }
 
-  async function resolveServicePat(
+  /**
+   * The single implementation of "may this service token act for the actor, and
+   * if not, why". `resolve()` and `explainService()` both call it, so the
+   * diagnostic answer can never disagree with the authorization answer.
+   */
+  async function serviceIdentityOf(
     context: Context,
     store: ITenantStore,
     cfg: TenancyConfig,
     tokenId: string,
-  ): Promise<TenantPrincipal | undefined> {
+  ): Promise<ServiceIdentityResolution> {
     const actorSub = context.req.header(actorHeaderName)?.trim();
     if (!actorSub) {
       // A service token without an actor has no tenant of its own; it may only
       // serve tenant-scoped reads of nothing. Treat as unauthenticated for
       // tenant purposes.
-      return undefined;
+      return { ok: false, code: "actor_header_missing" };
     }
-    if (cfg.serviceObo === "off") return undefined;
+    if (cfg.serviceObo === "off") return { ok: false, code: "obo_disabled" };
     const identity = await store.getIdentity(cfg.issuer as string, actorSub);
-    if (!identity || identity.disabledAt) return undefined;
+    if (!identity) return { ok: false, code: "actor_unregistered" };
+    if (identity.disabledAt) return { ok: false, code: "actor_disabled" };
     if (cfg.serviceObo === "consent" && !(await store.hasConsent(identity.tenantId, tokenId))) {
-      return undefined;
+      return { ok: false, code: "consent_missing" };
     }
-    return {
-      tenantId: identity.tenantId,
-      kind: "service_pat",
-      tokenId,
-      actorTenantId: identity.tenantId,
-      serviceTokenId: tokenId,
-    };
+    return { ok: true, tenantId: identity.tenantId, tokenId };
   }
 
   return {
@@ -241,6 +274,7 @@ export async function createTenantAuthHooks(deps: {
     clearSession,
     verifyIdToken,
     verifySessionCookie,
+    explainService: (context, tokenId) => serviceIdentityOf(context, tenantStore, config, tokenId),
   };
 }
 

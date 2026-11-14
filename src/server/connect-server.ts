@@ -26,6 +26,8 @@ import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { ConnectionError, defaultConnectionName } from "../connection-service.ts";
+import { describeCatalogReadConfig, readCatalogReadConfig } from "./catalog-read-config.ts";
+import { registerCatalogRoutes } from "./catalog-routes.ts";
 import { ActionPolicyService, emptyPolicyRules } from "../core/action-policy.ts";
 import { DEFAULT_ACTION_SEARCH_LIMIT, createActionSearchIndexProvider, searchActions } from "../core/action-search.ts";
 import {
@@ -202,6 +204,20 @@ export class ConnectServer {
       }
     });
     app.get("/health", (context) => context.json({ ok: true }));
+    // open-connector-mt: catalog read surface (`/api/catalog/*`), off unless the
+    // deployment asks for it. Registered BEFORE the auth middleware so the guard
+    // stays inside its own handler: adding this prefix to isPublicPath or
+    // readAuthScope would silently widen whichever auth domain it landed in.
+    // Unset ⇒ not registered at all ⇒ byte-compatible with upstream.
+    const catalogRead = readCatalogReadConfig(process.env);
+    if (catalogRead.mode !== "off") {
+      this.options.logger?.info({ surface: "catalog" }, describeCatalogReadConfig(catalogRead));
+      registerCatalogRoutes(app, {
+        mode: catalogRead.mode,
+        token: catalogRead.token,
+        catalog: this.options.catalog,
+      });
+    }
     if (this.options.compressApiResponses !== false) {
       // Compress dashboard JSON responses. Scoped to /api/* so the streaming
       // /mcp transport and /v1/proxy pass-through are never buffered/re-encoded.

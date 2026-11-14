@@ -22,9 +22,11 @@ import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { hasAdminBearer, readRuntimeGrant, readTenantPrincipal } from "../api/auth.ts";
 import { jsonError, readJsonBody } from "../api/http-utils.ts";
+import { coverageOf, parseCoverageOperations } from "../catalog-coverage.ts";
 import { policyRequestMaxBytes, readTokenPolicy } from "../api/policy-input.ts";
 import { BOOTSTRAP_TENANT_ID, PLATFORM_TENANT_ID } from "./constants.ts";
 import { currentStoreTenant, runWithTenant } from "./request-context.ts";
+import type { ServiceOboDenial } from "./tenant-auth.ts";
 import { readSessionCookieName } from "./tenant-auth.ts";
 
 const oidcStateCookie = "oomol_connect_oidc_pending";
@@ -311,6 +313,33 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     return context.json({ ok: true });
   });
 
+  // ── Service identity preflight (add-served-agent-connector-access) ──────
+  // A service token acting for an actor either works or it does not, and the
+  // reasons need four different repairs by three different people: log in once
+  // (actor_unregistered), ask ops to enable the tier (obo_disabled), grant
+  // consent (consent_missing), or send the actor header at all. `requireUser`
+  // collapses all of them into 401 — right for authorization, useless for
+  // repair — so this read-only endpoint answers with the reason instead of
+  // making every consumer guess.
+  //
+  // Deliberately NOT under the principal gate: it exists precisely for requests
+  // that have no principal. It grants nothing; a success here is the same fact
+  // `resolve()` already computed.
+  app.get("/api/tenant/service-whoami", async (context) => {
+    if (!hooks) {
+      return jsonError(context, 404, "tenancy_disabled", "Tenancy is disabled on this deployment.");
+    }
+    const grant = readRuntimeGrant(context);
+    if (!grant?.tokenId || grant.kind !== "service_pat") {
+      return jsonError(context, 403, "not_a_service_token", "This endpoint answers for service tokens only.");
+    }
+    const outcome = await hooks.explainService(context, grant.tokenId);
+    if (!outcome.ok) {
+      return jsonError(context, 401, outcome.code, SERVICE_DENIAL_MESSAGES[outcome.code]);
+    }
+    return context.json({ ok: true, tenantId: outcome.tenantId, tokenId: outcome.tokenId });
+  });
+
   // Everything below requires a signed-in principal.
   app.use("/api/tenant/*", async (context, next) => {
     const path = context.req.path;
@@ -318,6 +347,9 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
       path === "/api/tenant/config" ||
       path === "/api/tenant/oidc/authorize" ||
       path === "/api/tenant/oidc/callback" ||
+      // Answers "why is there no principal" — it cannot sit behind the
+      // principal gate it is explaining.
+      path === "/api/tenant/service-whoami" ||
       // cross-mint owns its Origin + session checks and must answer with CORS
       // headers on 401 too (the browser reads the status to poll the flow);
       // this middleware's bare 401 would short-circuit before those headers.
@@ -646,9 +678,7 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
     if (!principal) return jsonError(context, 401, "unauthorized", "Sign in required.");
     const providerId = context.req.query("provider")?.trim();
     if (!providerId) return jsonError(context, 400, "invalid_input", "provider is required.");
-    const provider = options.catalog.providers.find((row) => row.service === providerId);
-    if (!provider) return jsonError(context, 404, "unknown_provider", `Unknown provider: ${providerId}`);
-    const requested = readOperationTypes(context.req.query("operations"));
+    const requested = parseCoverageOperations(context.req.query("operations"));
     if (!requested) {
       return jsonError(
         context,
@@ -657,21 +687,13 @@ export function registerTenantRoutes(app: Hono, options: TenantRouteOptions): vo
         "operations must be a comma-separated subset of: read,write,destructive.",
       );
     }
-    const operations = requested.map((operation) => {
-      const actions = provider.actions.filter((action) => action.operationType === operation);
-      const executableActionCount = actions.filter((action) => action.execution.locallyExecutable).length;
-      return {
-        operation,
-        covered: executableActionCount > 0,
-        actionCount: actions.length,
-        executableActionCount,
-      };
-    });
-    return context.json({
-      provider: provider.service,
-      operations,
-      gaps: operations.filter((row) => !row.covered).map((row) => row.operation),
-    });
+    // One owner for "does the catalog cover these classes" (catalog-coverage.ts):
+    // the service-side read surface asks the same question, and two copies would
+    // let a pack read "supported" on one plane and "unsupported" on the other
+    // with no test going red.
+    const report = coverageOf(options.catalog, providerId, requested);
+    if (!report) return jsonError(context, 404, "unknown_provider", `Unknown provider: ${providerId}`);
+    return context.json(report);
   });
 
   // ── Cross-mint (add-connector-account-picker) ───────────────────────────
@@ -907,21 +929,6 @@ async function unknownConnectionIds(options: TenantRouteOptions, ids: readonly s
   return ids.filter((id) => !known.has(id));
 }
 
-const operationTypes = ["read", "write", "destructive"] as const;
-
-/** `operations=read,write` query parsing; defaults to the read/write pair. Undefined = invalid. */
-function readOperationTypes(raw: string | undefined): (typeof operationTypes)[number][] | undefined {
-  const requested = (raw ?? "read,write")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const valid = requested.filter((value): value is (typeof operationTypes)[number] =>
-    (operationTypes as readonly string[]).includes(value),
-  );
-  if (valid.length !== requested.length || valid.length === 0) return undefined;
-  return unique(valid);
-}
-
 function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
@@ -1024,3 +1031,16 @@ function operationWithinParentScope(
   if (coversOperation(parentOperations, scope.provider, scope.operationType)) return true;
   return parentActions.some((rule) => rule === "*" || rule === `${scope.provider}.*`);
 }
+
+/**
+ * What each service-token denial means to a human, phrased as the action it
+ * implies. Kept next to the preflight route so a new denial code cannot be added
+ * without stating its repair.
+ */
+const SERVICE_DENIAL_MESSAGES: Record<ServiceOboDenial, string> = {
+  actor_header_missing: "This service token must name the actor it acts for (x-oo-connector-actor-sub).",
+  obo_disabled: "On-behalf-of access is disabled on this deployment (SERVICE_OBO).",
+  actor_unregistered: "The actor has no account on this connector yet; it must sign in here once.",
+  actor_disabled: "The actor's account is disabled on this connector.",
+  consent_missing: "The actor's tenant has not consented to this service token.",
+};

@@ -11,9 +11,45 @@ of the README.
 | MCP              | `POST /mcp`                           | Agent hosts that can call MCP tools.                                                     |
 | MCP metadata     | `GET /mcp/tools`                      | Preview the discovery-oriented MCP tool set.                                             |
 | HTTP runtime API | `/v1/*`                               | SDK-style clients, scripts, and direct Action execution.                                 |
+| Catalog read     | `/api/catalog/*`                      | Services that need catalog facts only. Off unless enabled — see below.                   |
 | OpenAPI          | `GET /openapi.json`                   | API importers, reference generation, and strongly scoped one-Action specs.               |
 | Action guide     | `GET /api/actions/:actionId/agent.md` | Agent-readable markdown guide for one Action.                                            |
 | Web Console      | `GET /`                               | Browser workflow for browsing providers, configuring credentials, and debugging Actions. |
+
+### Catalog read surface (`/api/catalog/*`)
+
+A service that needs to know whether the catalog can honour a declared external system — a pack
+market checking whether a pack's `connector_bindings` are satisfiable — cannot use any other surface:
+`/api/tenant/*` requires a signed-in user, a service token has no tenant by design, `/v1/*` also
+grants Action execution, and the admin surface can mint PATs across tenants.
+
+This surface exists on its own prefix, answers catalog facts only, and is **off unless enabled**:
+
+| `OOMOL_CONNECT_CATALOG_READ` | Behaviour                                                              |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| unset / `off`                | Routes are not registered at all (404). Upstream-compatible by default. |
+| `public`                     | Anonymous reads. Choose only when the catalog may be public.            |
+| `service`                    | Requires `Authorization: Bearer $OOMOL_CONNECT_CATALOG_READ_TOKEN`.     |
+
+An unrecognized value, or `service` without a token, fails at startup rather than degrading. The
+dedicated token opens this surface and nothing else: the admin and runtime tokens do **not** work
+here, and this token does not work on any other surface.
+
+| Endpoint                                          | Returns                                                                                  |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET /api/catalog/providers`                      | `{providers:[{service, displayName, categories, authTypes, actionCount}]}`                |
+| `GET /api/catalog/providers/:service`             | One provider summary; `404 unknown_provider` when unknown.                               |
+| `GET /api/catalog/coverage?provider=&operations=` | `{provider, operations:[{operation, covered, actionCount, executableActionCount}], gaps}` |
+| `GET /api/catalog/actions/:actionId`              | `{actionId, provider, operationType, executable}`; `404 unknown_action` when unknown.    |
+
+`covered` is `executableActionCount > 0`, identical to `/api/tenant/catalog-coverage` — both call the
+same calculation. An unknown provider is `404`, never an all-zero report: "no such system" and "that
+system has no actions of that class" have different repairs.
+
+The surface is read-only (every write verb answers `405`) and carries **catalog facts only**. It never
+returns connections, tenants, identities, PATs, run records, OAuth configuration, or credentials —
+which is also why its answer cannot differ per caller. Policy ("may *this token* run this action")
+stays on `/api/tenant/scope-explain`; the catalog plane answers only "does the catalog have it".
 
 When runtime authentication is configured, `/v1/*` and `/mcp` callers should send a bootstrap token,
 persistent runtime token, or JWT access token as:
@@ -103,6 +139,36 @@ x-oo-connector-actor-sub: <user-sub>
   immediately and clears its consent rows.
 - Service PATs never reach the admin domain: admin routes under `/api/*` answer `403` regardless of
   the actor header.
+
+#### Checking a service identity before you use it
+
+Every refusal above looks the same from the caller's side — a bare `401`. They are not the same
+problem, and different people repair them: a missing actor header is the caller's bug, an `off` tier
+is an operator change, and an unregistered actor is one sign-in away.
+
+`GET /api/tenant/service-whoami` answers the same question **with its reason**, read-only. It never
+executes an action, mints nothing, and lists no connections:
+
+```bash
+curl -s -H "authorization: Bearer $SERVICE_PAT" \
+     -H "x-oo-connector-actor-sub: $USER_SUB" \
+     http://localhost:3000/api/tenant/service-whoami
+# 200 {"ok":true,"tenantId":"tn_…","tokenId":"tok_…"}
+```
+
+| Status | `error.code`           | Who fixes it                                                |
+| ------ | ---------------------- | ----------------------------------------------------------- |
+| 200    | —                      | Ready: this token can act for this actor.                   |
+| 403    | `not_a_service_token`  | The caller: this endpoint answers for service tokens only.   |
+| 401    | `actor_header_missing` | The caller: send `x-oo-connector-actor-sub`.                |
+| 401    | `obo_disabled`         | The operator: enable `SERVICE_OBO` on the deployment.       |
+| 401    | `actor_unregistered`   | The user: sign in to this deployment once, then retry.      |
+| 401    | `actor_disabled`       | The operator: re-enable the account.                        |
+| 401    | `consent_missing`      | The user/operator: grant this service the tenant's consent. |
+| 404    | `tenancy_disabled`     | The deployment runs `TENANCY=off`; there is no identity.     |
+
+The preflight and the authorization path share one implementation, so a `200` here is the same fact
+`/v1/*` would compute — it can never be more permissive than the real call.
 
 ## Provider Triggers
 
