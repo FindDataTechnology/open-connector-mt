@@ -18,15 +18,15 @@
 - [x] 3.3 非服务令牌 403；成功路径返回 actor 租户与令牌 id。
 - [x] 3.4 一致性用例：同一请求先断言诊断 200 且 `/api/tenant/session` 也 200，翻档 `off` 后两者同时 401。
 - [x] 3.5 **能红**：把 `obo_disabled` 与 `actor_unregistered` 合并成同一 code，`actor_unregistered` 用例必须红且其余仍绿（已实测：1 failed | 6 passed）。
-- [ ] 3.6 TENANCY=off 下 404 `tenancy_disabled` 的用例（当前缺）。
+- [x] 3.6 TENANCY=off 下 404 `tenancy_disabled` 的用例。验证：`hooks: undefined` + `mode:"off"` 单独建 app，断言 404 与 `error.code`。
 
 ## 4. 验收
 
 - [x] 4.1 `node scripts/typecheck.ts` 通过。
-- [x] 4.2 `npx vitest run src/server/tenancy/` 63/63 通过。
-- [ ] 4.3 `openspec validate add-service-identity-preflight --strict` 通过。
+- [x] 4.2 `npx vitest run src/server/tenancy/` 63/63 通过；加入 3.6 后该目录与本批 catalog 用例合计 88/88（6 文件）。
+- [x] 4.3 `openspec validate add-service-identity-preflight --strict` 通过。
 - [ ] 4.4 归档时对账：`+ 1 added, ~ 1 modified`，并 `openspec validate tenant-auth --type spec --strict`。
 
 ## 5. 文档
 
-- [ ] 5.1 `docs/runtime-api.md`（或等价的认证文档）记一条：代调失败的四种修复动作与对应错误码。
+- [x] 5.1 `docs/runtime-api.md`：新增「Checking a service identity before you use it」——curl 形状 + 状态/错误码/该谁修 的八行表（含 `not_a_service_token` 与 `tenancy_disabled`），并写明它与授权路径共用同一实现、不可能更宽松。
