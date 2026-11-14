@@ -130,7 +130,16 @@ x-oo-connector-actor-sub: <user-sub>
 
 - The actor must be an already-registered identity (`(issuer, subject)` from the deployment's OIDC
   provider); users register on their first login. Missing or unknown actors are rejected — identities
-  are never auto-created.
+  are never auto-created. The key is the **pair**, so a caller that signs in under a different issuer
+  than `OOMOL_CONNECT_JWT_ISSUER` reads as `actor_unregistered` — the same answer as "never signed
+  in". In `TENANCY=oidc` the deployment prints the key space at boot:
+
+  ```text
+  service OBO: allow-all; actors resolve against issuer https://id.example/oidc — a caller signed in under another issuer reads as actor_unregistered
+  ```
+
+  Compare that issuer with your identity provider's before treating a deployment-wide
+  `actor_unregistered` as a user problem.
 - Requests execute inside the actor's tenant and only see that tenant's connections; run records
   carry both the service token and the acting tenant for audit.
 - `SERVICE_OBO` gates the whole mechanism: `off` (default) rejects every service PAT, `allow-all`

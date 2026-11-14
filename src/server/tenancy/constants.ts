@@ -53,3 +53,24 @@ export function readTenancyConfig(env: Record<string, string | undefined> = proc
     crossSiteCookie: (env.OOMOL_CONNECT_CROSS_SITE_COOKIE ?? "").trim() === "1",
   };
 }
+
+/**
+ * One-line boot description of the identity key space that service OBO (D10 of
+ * paas add-served-agent-connector-access) depends on.
+ *
+ * Service OBO looks an actor up by `(issuer, sub)` — the row was written by
+ * whoever signed in at THIS deployment's OIDC console. A caller that
+ * signed in under a different issuer therefore reads as `actor_unregistered`,
+ * which is the same answer as "never signed in": fail-closed, but a wrong story
+ * to hand an operator. Printing the issuer at boot makes "the two ends point at
+ * one issuer" checkable by reading one line, instead of by shelling into the pod
+ * after every visitor has already been refused.
+ *
+ * Returns `undefined` when tenancy is off: there is no key space then, and a
+ * line saying so on every non-OIDC deployment is noise (SERVICE_OBO is inert).
+ */
+export function describeServiceIdentity(config: TenancyConfig): string | undefined {
+  if (config.mode !== "oidc") return undefined;
+  const issuer = config.issuer ?? "(unset)";
+  return `service OBO: ${config.serviceObo}; actors resolve against issuer ${issuer} — a caller signed in under another issuer reads as actor_unregistered`;
+}

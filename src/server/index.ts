@@ -16,7 +16,7 @@ import { resolveServerAssets } from "./server-assets.ts";
 import { createDirectoryMigrationSource } from "./storage/migration-source.ts";
 import { migratePostgresRuntimeDatabase, sqliteMigrationsNotice } from "./storage/node-runtime-database.ts";
 import { DEFAULT_RUN_LIMIT } from "./storage/runtime-store.ts";
-import { readTenancyConfig } from "./tenancy/constants.ts";
+import { describeServiceIdentity, readTenancyConfig } from "./tenancy/constants.ts";
 
 setGlobalProxyFromEnv();
 
@@ -64,6 +64,8 @@ try {
  */
 async function main(): Promise<void> {
   const assets = await resolveServerAssets();
+  // Read once: the boot line below states the same key space this config builds.
+  const tenancy = readTenancyConfig();
   const runtime = await createConnectorRuntime({
     dataDir,
     publicOrigin,
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
       issuer: process.env.OOMOL_CONNECT_JWT_ISSUER,
       audience: process.env.OOMOL_CONNECT_JWT_AUDIENCE,
     },
-    tenancy: readTenancyConfig(),
+    tenancy,
     network: {
       allowPrivateNetwork: parsePrivateNetworkAccessFlag(process.env.OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK),
       trustedHosts: parseEgressTrustedHosts(process.env.OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS),
@@ -105,6 +107,15 @@ async function main(): Promise<void> {
     apiReference: true,
     logger,
   });
+
+  // The identity key space service OBO resolves actors against (D10): stated
+  // once at boot so a deployment-wide `actor_unregistered` can be traced to an
+  // issuer mismatch by reading one line, instead of being indistinguishable
+  // from "nobody ever signed in". Nothing is logged when tenancy is off.
+  const serviceIdentity = describeServiceIdentity(tenancy);
+  if (serviceIdentity) {
+    logger.info({ tenancy: tenancy.mode, serviceObo: tenancy.serviceObo, issuer: tenancy.issuer ?? null }, serviceIdentity);
+  }
 
   try {
     // The console is a host of the same request handler that embedded applications consume.
