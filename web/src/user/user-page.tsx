@@ -22,7 +22,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type LoadState = "loading" | "ready" | "error";
 
-type ProviderOption = { service: string; displayName: string; authTypes: string[] };
+// Exported because the console's connection form (ui.tsx) and the catalog card
+// wall (connector-catalog.tsx) both read the same projection; declaring it here
+// and importing it elsewhere is only legal if it leaves this module.
+export type ProviderOption = {
+  service: string;
+  displayName: string;
+  authTypes: string[];
+  /** Catalog categories; absent on the connection-form projection, which does not carry them. */
+  categories?: string[];
+};
 
 /**
  * Providers a tenant can actually configure. Auth-free-only entries (no api_key,
@@ -489,7 +498,7 @@ function PatsCard(): ReactNode {
  * provider and connection in the tenant. That is the widest possible credential,
  * so the row says so instead of rendering blank.
  */
-export function patScopeClass(pat: TenantPat): string {
+export function patScopeClass(pat: Pick<TenantPat, "allowedActions" | "allowedConnections">): string {
   return pat.allowedActions.length === 0 && pat.allowedConnections.length === 0
     ? "user-pat-scope user-pat-scope-full"
     : "user-pat-scope";
