@@ -1,7 +1,17 @@
 # tenant-auth Specification
 
 ## Purpose
-TBD - created by archiving change add-service-pat-issuance. Update Purpose after archive.
+
+定义 `TENANCY=oidc` 部署下的身份与授权模型：用户 PAT 与 OIDC 会话代表"某个人"，服务
+PAT 代表"某个受信服务"，后者只有在声明了 actor 时才变成"代谁执行"；`SERVICE_OBO` 三档
+决定代调是否被允许、以及是否还需要 per-tenant consent。admin token 在两档下都保留跨
+租户的全权视图，是唯一不受租户边界约束的凭证。`TENANCY=off` 时整套租户语义不加载，
+上游行为逐字节不变——这是本规格所有条款的前提。
+
+服务身份的失败必须**可区分**：`actor_header_missing`、`obo_disabled`、
+`actor_unregistered`、`actor_disabled`、`consent_missing` 各由一个不同的人修复，
+因此 `GET /api/tenant/service-whoami` 只读地回答"能不能、不能是为什么"，且与授权
+路径共用同一实现。
 
 ## Requirements
 
@@ -75,7 +85,7 @@ TBD - created by archiving change add-service-pat-issuance. Update Purpose after
 
 ### Requirement: OIDC 浏览器会话
 
-console 用户面板以 OIDC 公共客户端（PKCE）登录；授权码交换经服务端代理完成；验签校验签名、issuer、audience 与时效。
+console 用户面板 SHALL 以 OIDC 公共客户端（PKCE）登录；授权码交换 SHALL 经服务端代理完成；验签 SHALL 校验签名、issuer、audience 与时效。
 
 #### Scenario: 正常登录
 
@@ -182,6 +192,8 @@ console 用户面板以 OIDC 公共客户端（PKCE）登录；授权码交换�
 
 `service_pat` 不属于任何用户租户；凭 `x-oo-connector-actor-sub` 头以指定身份的租户执行。`SERVICE_OBO` 三档管辖：`off`（默认）禁用、`allow-all` 全放行、`consent` 需 consent 行。
 
+判定 SHALL 收敛到单一实现 `serviceIdentityOf(context, store, cfg, tokenId)`：授权路径（`resolve()` → principal）与诊断路径（`explainService()` → 带原因的结果）**MUST** 调用同一函数，使「诊断说能」与「授权放行」不可能出现分歧。
+
 #### Scenario: off 档禁用代调
 
 - **WHEN** `SERVICE_OBO=off` 时携带 actor 头请求
@@ -207,9 +219,14 @@ console 用户面板以 OIDC 公共客户端（PKCE）登录；授权码交换�
 - **WHEN** user_pat 携带 actor 头请求
 - **THEN** actor 头被忽略，以 PAT 自身租户执行（代调资格仅属 service_pat）
 
+#### Scenario: 诊断与授权共用同一判定
+
+- **WHEN** 核对任一服务令牌请求的授权结论与其诊断结论
+- **THEN** 二者一致；翻档或停用身份后仍一致（实现上只能共用 `serviceIdentityOf`）
+
 ### Requirement: admin token 保留
 
-admin token 在两档下均保留：可访问运维端点并在 MT 模式下具有跨租户视图与操作权（文档明示的全权凭证）。
+admin token SHALL 在两档下均保留：可访问运维端点，并在 MT 模式下具有跨租户视图与操作权（文档明示的全权凭证）。
 
 #### Scenario: admin 跨租户运维
 
@@ -258,3 +275,49 @@ admin token 在两档下均保留：可访问运维端点并在 MT 模式下具�
 
 - **WHEN** 以 user_pat 派生令牌并尝试用它访问 admin 域或发起 OBO 代调
 - **THEN** 拒绝，衰减路径不引入任何父令牌不具备的权限
+
+### Requirement: 服务身份可预检
+
+系统 SHALL 提供一个只读诊断端点，回答「这个服务令牌现在能否以某个 actor 的身份执行，若不能是为什么」，使调用方能区分「调用方补一个头」「运维开档位」「用户去登录一次」「补 consent」四种互不相同的修复动作，而不是对着一个裸 401 猜。
+
+原因集合 SHALL 至少包含：`actor_header_missing`、`obo_disabled`、`actor_unregistered`、`actor_disabled`、`consent_missing`。诊断 MUST NOT 比授权更宽，MUST NOT 执行任何动作、MUST NOT 签发凭证、MUST NOT 返回连接或动作清单。
+
+#### Scenario: 服务令牌得到肯定答案
+
+- **WHEN** `SERVICE_OBO` 允许且 actor 头指向一个已登记的启用身份，持有效 service_pat 请求诊断端点
+- **THEN** 返回该 actor 的租户标识与该服务令牌标识，状态 200
+
+#### Scenario: 非服务令牌被明确挡回
+
+- **WHEN** 以 user_pat 或 OIDC 会话请求诊断端点
+- **THEN** 拒绝（403），错误码指明「本端点只对服务令牌作答」
+
+#### Scenario: 缺 actor 头
+
+- **WHEN** 持有效 service_pat 但请求未带 actor 头
+- **THEN** 拒绝，错误码为 `actor_header_missing`
+
+#### Scenario: 运维未开档位
+
+- **WHEN** `SERVICE_OBO=off` 且请求带 actor 头
+- **THEN** 拒绝，错误码为 `obo_disabled`；同一请求补足 actor 头也不改变该结论（原因不在调用方）
+
+#### Scenario: actor 未登记
+
+- **WHEN** actor 头指向从未在连接器登录过的身份
+- **THEN** 拒绝，错误码为 `actor_unregistered`，且诊断路径不创建该身份
+
+#### Scenario: actor 已停用
+
+- **WHEN** actor 头指向已被停用的身份
+- **THEN** 拒绝，错误码为 `actor_disabled`，与 `actor_unregistered` 可区分
+
+#### Scenario: consent 档缺同意行
+
+- **WHEN** `SERVICE_OBO=consent` 且无该（服务令牌, actor 租户）consent 行
+- **THEN** 拒绝，错误码为 `consent_missing`
+
+#### Scenario: 未启用租户模式
+
+- **WHEN** `TENANCY=off` 时请求诊断端点
+- **THEN** 回答 404 `tenancy_disabled`（与其余租户路由一致），不泄漏任何身份信息
