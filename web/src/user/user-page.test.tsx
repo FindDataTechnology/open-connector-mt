@@ -288,6 +288,22 @@ describe("restore-app-directory-wall (add-app-directory mount + ?add= deep link)
     expect(serviceFromQuery("")).toBeNull();
   });
 
+  // The bug this pins, found on production 2026-11-20: the catalog arrives
+  // AFTER first paint, so the handoff effect ran once against an empty provider
+  // list, decided "unknown service", and cleared the request — a real
+  // `/me?add=github` link did nothing. Static render cannot run effects, so the
+  // guard is pinned where it lives: `formSeedFor` answers null for an empty
+  // catalog (indistinguishable from "unknown"), and the caller must therefore
+  // wait rather than consume. The assertion below is the decision rule.
+  it("an empty catalog must not consume a handoff (it means not-loaded, not unknown)", async () => {
+    const { formSeedFor } = await import("./user-page");
+    // Same call the effect makes before the catalog loads…
+    expect(formSeedFor("github", [])).toBeNull();
+    // …and the same call once it has: seeded. The two are different facts, so a
+    // caller that cannot tell them apart has to wait — that is the fix.
+    expect(formSeedFor("github", catalog as never)).toEqual({ service: "github", authType: "api_key" });
+  });
+
   it("?add= and #catalog coexist: neither consumes the other", async () => {
     const { serviceFromQuery } = await import("./user-page");
     // The reader only ever sees the query string, so the hash is orthogonal by

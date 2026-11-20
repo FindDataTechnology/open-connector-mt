@@ -293,6 +293,12 @@ function ConnectionsCard(props: {
   // one-shot request is still cleared so a later repeat can fire again.
   useEffect(() => {
     if (!props.requestedService) return;
+    // The catalog arrives ASYNCHRONOUSLY (the shell fetches /v1/providers after
+    // first paint). Consuming the request while `pickable` is still empty would
+    // decide "unknown service" against a list that has not loaded yet and clear
+    // the handoff forever — which is exactly what a `/me?add=github` link did on
+    // production until this guard. Wait for the catalog, then decide once.
+    if (pickable.length === 0) return;
     const seed = formSeedFor(props.requestedService, pickable);
     if (seed) {
       setService(seed.service);
