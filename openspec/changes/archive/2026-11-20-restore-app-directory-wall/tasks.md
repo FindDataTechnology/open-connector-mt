@@ -53,7 +53,12 @@
       注：中途一次 6 条超时是机器被并发会话的测试压到 load 49 造成的，提高 testTimeout 后全绿；
       期间我 `pkill -f "node --test"` 误杀了 fd-memory 会话的一个测试进程，那条需要它自己重跑。
 - [x] 5.4 `openspec validate restore-app-directory-wall --strict` 通过。
-- [ ] 5.5 真机走查（`TENANCY=oidc` 部署）：`/me` 目录墙呈现 → 点卡片 → 表单就位 → 保存成功；
-      `/me?add=<service>` 同上；`TENANCY=off` 管理台不变。
-- [ ] 5.6 跨仓对账：壹座 `ConnectorBindingsView` 的「浏览可连接的目录」（`${meUrl}#catalog`）
-      点开后确实落在墙区 —— 这条是本次修复的原始症状，必须在真机上确认，不能只看代码。
+- [x] 5.5 真机走查（生产 `TENANCY=oidc`，2026-11-20 ego 实测）：`/me` 目录墙呈现（60 张卡）→
+      点「Alpha Vantage」卡 → 表单 provider 变 Alpha Vantage 且滚入视口 →
+      `/me?add=github` 同样预填（**第一版失败**，见下）。未验：点「保存」真的落库
+      （会写用户的连接器租户，未取得许可）。`TENANCY=off` 管理台不变未单独走查——
+      目录墙挂在 `UserPage`，而 `UserPage` 只在 user mode 渲染。
+- [x] 5.6 跨仓对账（2026-11-20 ego 实测）：`https://connector.finddatatech.cloud/me#catalog`
+      落到「应用目录」墙（`#catalog` 锚点在、60 张卡、`scrolledToWall: true`）——原始症状已修。
+      **但发现路径本身仍有一处缺陷**：`ConnectorBindingsView` 只在用户**装了声明绑定的包**时才渲染
+      那条链接，而产线 0 个此类部署 ⇒ 今天没人能点到它。锚点修好了，入口仍空置。
