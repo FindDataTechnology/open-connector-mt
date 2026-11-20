@@ -182,7 +182,9 @@ completed idempotent Action responses:
 OOMOL_CONNECT_ENCRYPTION_KEY="replace-with-a-long-random-secret" npm run dev
 ```
 
-Set an admin bearer token when the admin API or web console is reachable outside your own shell:
+Set an admin bearer token to use the admin API or web console. Without one those surfaces refuse
+requests; on a loopback-only session set `OOMOL_CONNECT_ALLOW_OPEN_ADMIN=1` to run them without
+authentication instead:
 
 ```bash
 OOMOL_CONNECT_ADMIN_TOKEN="replace-with-an-admin-token" npm run dev
