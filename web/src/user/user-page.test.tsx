@@ -40,12 +40,26 @@ const locales = {
       signInIntro: "Connect an account once and your agent gains a thousand hands.",
       stepSignIn: "Sign in with your unified account",
       stepConnect: "Add your SaaS connections",
-      stepMint: "Mint an access token and paste it into Yizuo",
+      stepMint: "Hand the connection to your agent — authorized cross-site directly, or paste a minted token",
       learnMore: "Learn more",
       securityNote: "Credentials encrypted, execution surface never exposed.",
       noAuthGroup: "Auth-free data sources (no setup needed, ready to use)",
-      patHint: "Paste the token into your agent platform's connector settings (e.g. Yizuo).",
+      patHint:
+        "Authorize the connector into your agent platform cross-site first — no pasting needed. Where that platform does not support it, paste the token into its connector settings manually.",
       backToAdmin: "Back to admin console",
+    },
+    userCatalog: {
+      title: "App directory",
+      intro: "{{count}} services you can connect. Click a card to fill the connection form.",
+      searchPlaceholder: "Search services or categories…",
+      filterLabel: "Filter by category",
+      all: "All",
+      connect: "Connect",
+      connected: "Connected · {{count}}",
+      authFree: "No credential needed",
+      empty: "Nothing matches that search.",
+      matchCount: "{{count}} services",
+      showMore: "Show {{count}} more",
     },
     tenant: {
       title: "My connections",
@@ -154,7 +168,9 @@ describe("SignInCard (revamp-user-panel + add-welcome-entry)", () => {
     expect(markup).toContain("user-hero-steps");
     expect(markup).toContain("Sign in with your unified account");
     expect(markup).toContain("Add your SaaS connections");
-    expect(markup).toContain("Mint an access token and paste it into Yizuo");
+    expect(markup).toContain("authorized cross-site directly");
+    // The paste path is stated as an alternative, never as the only way.
+    expect(markup).toContain("paste a minted token");
     // Learn-more link: new tab, en locale points at the un-prefixed page.
     expect(markup).toContain('class="user-hero-learn-more"');
     expect(markup).toContain('href="https://www.finddatatech.cloud/products/wanxing-connector/"');
@@ -201,7 +217,8 @@ describe("UserPanelBody (revamp-user-panel)", () => {
     ]);
     expect(markup.indexOf("Access tokens (PAT)")).toBeLessThan(markup.indexOf("<h2>Connections</h2>"));
     // The apostrophe is HTML-escaped in static markup; assert around it.
-    expect(markup).toContain("Paste the token into your agent platform");
+    expect(markup).toContain("no pasting needed");
+    expect(markup).toContain("paste the token into its connector settings manually");
   });
 
   it("groups virtual no-auth connections collapsed, without delete; own rows keep delete", async () => {
@@ -218,6 +235,87 @@ describe("UserPanelBody (revamp-user-panel)", () => {
     expect(markup).toContain("github / default");
     expect(markup).toContain("hackernews / default");
     expect(markup.match(/Delete/g)).toHaveLength(1);
+  });
+});
+
+describe("restore-app-directory-wall (add-app-directory mount + ?add= deep link)", () => {
+  const session = { tenantId: "t1", kind: "oidc_session", email: "u@example.com", displayName: "U" } as const;
+  const catalog = [
+    { service: "github", displayName: "GitHub", authTypes: ["api_key", "oauth2"], categories: ["dev"] },
+    { service: "slack", displayName: "Slack", authTypes: ["oauth2"], categories: ["chat"] },
+    { service: "hackernews", displayName: "Hacker News", authTypes: ["no_auth"] },
+  ];
+
+  async function renderBody(providersIn = catalog): Promise<string> {
+    const { UserPanelBody } = await import("./user-page");
+    return renderToStaticMarkup(
+      withI18n(
+        createElement(UserPanelBody, {
+          session,
+          providers: providersIn,
+          connections: [],
+          connectionsState: "ready",
+          error: null,
+          onChanged: () => undefined,
+        }),
+      ),
+    );
+  }
+
+  it("mounts the app directory, which owns the #catalog anchor 壹座 deep-links to", async () => {
+    const markup = await renderBody();
+    // The anchor is the contract: 壹座's connector card links to `${meUrl}#catalog`.
+    expect(markup).toContain('id="catalog"');
+    expect(markup).toContain("App directory");
+    // Configurable providers are offered; the auth-free-only one is not connectable.
+    expect(markup).toContain("GitHub");
+    expect(markup).toContain("Slack");
+    // The directory precedes the card it hands off to (several panels reuse the
+    // form class, so anchor on the connections section heading instead).
+    expect(markup.indexOf('id="catalog"')).toBeLessThan(markup.indexOf("<h2>Connections</h2>"));
+  });
+
+  // Static render never runs effects, so the deep link is pinned at its seam:
+  // the query reader and the seed both are pure, and the effect only applies
+  // their answer. A test that rendered the page would pass either way.
+  it("reads ?add= from the query and ignores blank or absent values", async () => {
+    const { serviceFromQuery } = await import("./user-page");
+    expect(serviceFromQuery("?add=github")).toBe("github");
+    expect(serviceFromQuery("?add=%20github%20")).toBe("github");
+    expect(serviceFromQuery("?add=")).toBeNull();
+    expect(serviceFromQuery("?add=%20%20")).toBeNull();
+    expect(serviceFromQuery("?panel=connector")).toBeNull();
+    expect(serviceFromQuery("")).toBeNull();
+  });
+
+  it("?add= and #catalog coexist: neither consumes the other", async () => {
+    const { serviceFromQuery } = await import("./user-page");
+    // The reader only ever sees the query string, so the hash is orthogonal by
+    // construction: `/me?add=github#catalog` pre-fills AND the browser scrolls
+    // to the wall, with no code coordinating the two.
+    const url = new URL("https://console.test/me?add=github#catalog");
+    expect(url.hash).toBe("#catalog");
+    expect(serviceFromQuery(url.search)).toBe("github");
+    // Other query params survive alongside it.
+    const withOthers = new URL("https://console.test/me?foo=1&add=slack&bar=2#catalog");
+    expect(serviceFromQuery(withOthers.search)).toBe("slack");
+    expect(withOthers.searchParams.get("foo")).toBe("1");
+    expect(withOthers.searchParams.get("bar")).toBe("2");
+    expect(withOthers.hash).toBe("#catalog");
+  });
+
+  it("seeds api_key when the provider supports it, oauth2 otherwise, nothing when unconfigurable", async () => {
+    const { formSeedFor } = await import("./user-page");
+    const pickable = [
+      { service: "github", displayName: "GitHub", authTypes: ["api_key", "oauth2"] },
+      { service: "slack", displayName: "Slack", authTypes: ["oauth2"] },
+    ];
+    expect(formSeedFor("github", pickable)).toEqual({ service: "github", authType: "api_key" });
+    expect(formSeedFor("slack", pickable)).toEqual({ service: "slack", authType: "oauth2" });
+    // The auth-free-only provider never entered `pickable`, so a link to it dies here.
+    expect(formSeedFor("hackernews", pickable)).toBeNull();
+    expect(formSeedFor("nope", pickable)).toBeNull();
+    expect(formSeedFor(null, pickable)).toBeNull();
   });
 });
 

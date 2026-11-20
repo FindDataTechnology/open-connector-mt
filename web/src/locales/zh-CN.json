@@ -854,11 +854,11 @@
     "signInIntro": "连一次账户，agent 得到千只手——1500+ 外部服务、万级预置动作，统一凭据托管。",
     "stepSignIn": "用统一身份登录",
     "stepConnect": "添加你的 SaaS 连接（GitHub、飞书、钉钉…）",
-    "stepMint": "铸造访问令牌，粘贴到壹座",
+    "stepMint": "把连接交给 agent——经跨站授权直接接通，或铸造一枚令牌手动粘贴",
     "learnMore": "了解产品",
     "securityNote": "凭据加密托管、运行日志脱敏，执行面不对公网。",
     "noAuthGroup": "免鉴权数据源（无需配置，直接可用）",
-    "patHint": "把令牌粘贴到 agent 平台（如壹座）的连接器设置中",
+    "patHint": "优先经跨站授权直接接通 agent 平台（如壹座），免去粘贴；该平台不支持时，再把令牌手动粘贴到它的连接器设置中。",
     "backToAdmin": "返回管理台"
   },
   "tenant": {

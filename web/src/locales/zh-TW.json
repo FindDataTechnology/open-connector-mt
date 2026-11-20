@@ -854,11 +854,11 @@
     "signInIntro": "連一次帳戶，agent 得到千隻手——1500+ 外部服務、萬級預置動作，統一憑證託管。",
     "stepSignIn": "用統一身份登入",
     "stepConnect": "新增你的 SaaS 連線（GitHub、飛書、釘釘…）",
-    "stepMint": "鑄造存取權杖，貼到壹座",
+    "stepMint": "把連線交給 agent——經跨站授權直接接通，或鑄造一枚權杖手動貼上",
     "learnMore": "了解產品",
     "securityNote": "憑證加密託管、執行日誌脫敏，執行面不對公網。",
     "noAuthGroup": "免鑑權資料來源（無需設定，可直接使用）",
-    "patHint": "把權杖貼到 agent 平台（如壹座）的連接器設定中",
+    "patHint": "優先經跨站授權直接接通 agent 平台（如壹座），免去貼上；該平台不支援時，再把權杖手動貼到它的連接器設定中。",
     "backToAdmin": "返回管理台"
   },
   "tenant": {

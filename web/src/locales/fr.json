@@ -854,11 +854,11 @@
     "signInIntro": "Connectez un compte une fois et votre agent gagne mille mains — plus de 1500 services externes, des dizaines de milliers d'actions prêtes à l'emploi, un coffre d'identifiants unique.",
     "stepSignIn": "Connectez-vous avec votre compte unifié",
     "stepConnect": "Ajoutez vos connexions SaaS (GitHub, Feishu, DingTalk…)",
-    "stepMint": "Émettez un jeton d'accès et collez-le dans Yizuo",
+    "stepMint": "Confiez la connexion à votre agent — autorisation intersite directe, ou jeton émis à coller",
     "learnMore": "En savoir plus sur le produit",
     "securityNote": "Identifiants chiffrés, journaux d'exécution expurgés, surface d'exécution jamais exposée à Internet.",
     "noAuthGroup": "Sources de données sans authentification (aucune configuration requise)",
-    "patHint": "Collez le jeton dans les paramètres du connecteur de votre plateforme d'agents (par ex. Yizuo).",
+    "patHint": "Autorisez d'abord le connecteur dans votre plateforme d'agents (par ex. Yizuo) en intersite — sans collage. Si la plateforme ne le prend pas en charge, collez le jeton dans ses paramètres de connecteur.",
     "backToAdmin": "Retour au panneau d'administration"
   },
   "tenant": {

@@ -10,9 +10,10 @@ import type { ReactNode } from "react";
 
 import { useTranslate, useLang } from "@embra/i18n/react";
 import { KeyRound, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../api";
 import { Badge, EmptyState, InlineError, StatusDot } from "../shared-ui";
+import { CatalogCard } from "./connector-catalog";
 import { tenantApi } from "./tenant-api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +23,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type LoadState = "loading" | "ready" | "error";
 
-type ProviderOption = { service: string; displayName: string; authTypes: string[] };
+// Exported because the console shell (ui.tsx) and the catalog card wall
+// (connector-catalog.tsx) both read the same projection; declaring it here and
+// importing it elsewhere is only legal if it leaves this module.
+export type ProviderOption = {
+  service: string;
+  displayName: string;
+  authTypes: string[];
+  iconUrl?: string | null;
+  homepageUrl?: string | null;
+  /** Catalog categories; the app directory shows the first one as a card's meta line. */
+  categories?: string[];
+};
 
 /**
  * Providers a tenant can actually configure. Auth-free-only entries (no api_key,
@@ -35,6 +47,38 @@ export function configurableProviders(providers: ProviderOption[]): ProviderOpti
 
 /** How many matches a rendered picker page shows before it tells you the rest exist. */
 export const providerPickerLimit = 50;
+
+/**
+ * The service a deep link asks for, or null. `?add=<service>` is 壹座's handoff
+ * into this page; anything absent or blank is no request at all. Whether the
+ * service is configurable is decided downstream by `formSeedFor` — this only
+ * reads the query, so a mistyped link stays inert instead of blanking the page.
+ */
+export function serviceFromQuery(search: string): string | null {
+  const value = new URLSearchParams(search).get("add");
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * What a handed-down service should seed the form with: the provider plus the
+ * auth type its capabilities allow (api_key when supported, else oauth2 — a
+ * manual no_auth path does not exist here). Null when the catalog cannot
+ * configure that service, which is the "unknown / auth-free-only" case: the
+ * request is dropped, never turned into a guessed form.
+ */
+export function formSeedFor(
+  requested: string | null,
+  pickable: ProviderOption[],
+): { service: string; authType: "api_key" | "oauth2" } | null {
+  if (!requested) return null;
+  const provider = pickable.find((p) => p.service === requested);
+  if (!provider) return null;
+  return {
+    service: provider.service,
+    authType: provider.authTypes.includes("api_key") ? "api_key" : "oauth2",
+  };
+}
 
 export function filterProviders(providers: ProviderOption[], query: string): ProviderOption[] {
   const needle = query.trim().toLowerCase();
@@ -145,7 +189,8 @@ export function SignInCard(): ReactNode {
   );
 }
 
-/** Signed-in layout: PATs first (the only cross-platform output), then connections, then test-run. */
+/** Signed-in layout: PATs first (the only cross-platform output), then the app
+ *  directory (the browse side of connecting), then connections, then test-run. */
 export function UserPanelBody(props: {
   session: TenantSession;
   providers: ProviderOption[];
@@ -157,6 +202,21 @@ export function UserPanelBody(props: {
   const t = useTranslate();
   const own = props.connections.filter((c) => !c.virtual);
   const virtual = props.connections.filter((c) => c.virtual);
+  // A catalog card and the picker inside the connections card are two doors to
+  // one form: the card hands the service down and the form scrolls itself into
+  // view. Neither path knows how to connect on its own.
+  const [requestedService, setRequestedService] = useState<string | null>(null);
+
+  // Deep link `/me?add=<service>` (壹座's connector card links here): the same
+  // one-way handoff a card click performs. Read from the location rather than
+  // the router so the panel stays renderable outside a Router (the panel is
+  // mounted by the shell, but its static render is what the tests pin).
+  // Unknown or non-configurable services simply never reach the form — the
+  // form's own filter decides, and a mistyped deep link must not blank the page.
+  const addService = typeof window === "undefined" ? null : serviceFromQuery(window.location.search);
+  useEffect(() => {
+    if (addService) setRequestedService(addService);
+  }, [addService]);
 
   return (
     <div className="user-page">
@@ -181,11 +241,18 @@ export function UserPanelBody(props: {
       {props.error ? <InlineError message={props.error} /> : null}
 
       <PatsCard />
+      <CatalogCard
+        providers={props.providers}
+        connections={props.connections}
+        onConnect={(service) => setRequestedService(service)}
+      />
       <ConnectionsCard
         providers={props.providers}
         own={own}
         virtual={virtual}
         state={props.connectionsState}
+        requestedService={requestedService}
+        onServiceApplied={() => setRequestedService(null)}
         onChanged={props.onChanged}
       />
       <TestRunCard connectionNames={[...new Set(props.connections.map((c) => c.connectionName ?? "default"))]} />
@@ -199,6 +266,9 @@ function ConnectionsCard(props: {
   own: TenantConnection[];
   virtual: TenantConnection[];
   state: LoadState;
+  /** A service handed down by a directory card or `/me?add=` — applied once, then cleared. */
+  requestedService?: string | null;
+  onServiceApplied?: () => void;
   onChanged: () => void;
 }): ReactNode {
   const t = useTranslate();
@@ -210,10 +280,28 @@ function ConnectionsCard(props: {
   const [apiKey, setApiKey] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
+  const formRef = useRef<HTMLDivElement>(null);
 
   const pickable = useMemo(() => configurableProviders(props.providers), [props.providers]);
   const matches = useMemo(() => filterProviders(pickable, pickerQuery), [pickable, pickerQuery]);
   const visibleMatches = matches.slice(0, providerPickerLimit);
+
+  // A card in the app directory (or a `/me?add=` deep link) asked for this
+  // service: adopt it and bring the form into view, because the card the user
+  // clicked is above the form. A service the form cannot configure (unknown, or
+  // no api_key/oauth2) is ignored — the handoff never blanks the page — but the
+  // one-shot request is still cleared so a later repeat can fire again.
+  useEffect(() => {
+    if (!props.requestedService) return;
+    const seed = formSeedFor(props.requestedService, pickable);
+    if (seed) {
+      setService(seed.service);
+      setAuthType(seed.authType);
+      formRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      formRef.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+    }
+    props.onServiceApplied?.();
+  }, [props.requestedService, pickable, props.onServiceApplied]);
 
   const selectedProvider = pickable.find((p) => p.service === service);
   const supportsOAuth = selectedProvider?.authTypes.includes("oauth2") ?? false;
@@ -317,7 +405,7 @@ function ConnectionsCard(props: {
         </>
       )}
       {formError ? <InlineError message={formError} /> : null}
-      <div className="user-connection-form">
+      <div className="user-connection-form" ref={formRef}>
         <div className="user-form-row">
           <Label>{t("tenant.connections.provider")}</Label>
           <Button variant="outline" onClick={() => setPickerOpen(true)}>
@@ -489,7 +577,9 @@ function PatsCard(): ReactNode {
  * provider and connection in the tenant. That is the widest possible credential,
  * so the row says so instead of rendering blank.
  */
-export function patScopeClass(pat: TenantPat): string {
+// Reads only the two allowlists, so it asks for only those: the panel row and
+// the tests both hand it a projection that carries no id/name/timestamps.
+export function patScopeClass(pat: Pick<TenantPat, "allowedActions" | "allowedConnections">): string {
   return pat.allowedActions.length === 0 && pat.allowedConnections.length === 0
     ? "user-pat-scope user-pat-scope-full"
     : "user-pat-scope";
