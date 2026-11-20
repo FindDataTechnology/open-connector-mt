@@ -1,3 +1,5 @@
+> **延后（2026-11-21）**：实现已入库（4a075664 补提交了自 11-10 起只活在磁盘上的 `src/providers/{alipay,wechatpay}` 与 `docs/wms-skeleton-contract.md`，tsc 干净、47 测试全过）。剩 3 项全是外部前置：1.2 等下一个上游双周窗与维护者确认 D1；4.3 需锚点客户的商户资质/BYOK；4.5 需锚点客户确认。需求本身仍成立——ERP `templates/supply-chain/connector-pack/pack.json` 至今声明商户侧只读流水 + 回调记录 + 日终对账。
+
 # add-supply-chain-provider-onboarding — tasks
 
 > 触碰声明：本 change **零上游既有文件改动**（design D1；upstream-touched = 无）。下列所有代码任务落点均为 `src/providers/` 下 fork-new 新路径；生成物任务只再生 gitignored 生成数据。每组任务独立可验证。
