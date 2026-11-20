@@ -23,9 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type LoadState = "loading" | "ready" | "error";
 
-// Exported because the console shell (ui.tsx) and the catalog card wall
-// (connector-catalog.tsx) both read the same projection; declaring it here and
-// importing it elsewhere is only legal if it leaves this module.
+// Exported because the console's connection form (ui.tsx) and the catalog card
+// wall (connector-catalog.tsx) both read the same projection; declaring it here
+// and importing it elsewhere is only legal if it leaves this module.
 export type ProviderOption = {
   service: string;
   displayName: string;
