@@ -3,7 +3,7 @@ name: Publish TCR Image
 # open-connector-mt: build the upstream docker/Dockerfile and publish to
 # Tencent TCR (hkccr.ccs.tencentyun.com/yizuo/open-connector-mt) so the
 # fd-prod GitOps line (fd-infra-deploy, ArgoCD) can consume sha- tags.
-# The hk->ccr (Guangzhou) leg belongs to the cheap-3 tcr-relay (cron, repos.conf
+# The hk->ccr (Guangzhou) leg belongs to the tcr-relay node (cron, repos.conf
 # lists yizuo/open-connector-mt) — NEVER push ccr directly from this US runner.
 #
 # Requires repository secrets TCR_USERNAME / TCR_PASSWORD (same setup as the
