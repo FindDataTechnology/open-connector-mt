@@ -34,3 +34,14 @@
 - [ ] 4.3 回调链路验收（锚点客户沙箱/测试商户）：一笔真实支付回调经订阅落 `trigger_subscriptions`、验签通过；伪造签名被拒；connection 断开时订阅按既有语义拒绝/清理（无新迁移，0017 已备）——**挂账**：无真实商户凭证（mchid/API 证书/APIv3 密钥由锚点客户/商户侧提供，BYOK），验签/幂等/拒收语义已由本地 trigger 测试以测试密钥对覆盖（wechatpay 10 例、alipay 11 例，含伪造签名拒收、重放超窗拒收、无证 fail-closed），live 回调验收待商户资质到位后与 ERP tasks 3.1/3.2 对齐执行；部署前置：publicOrigin + Open Flow ingress + 渠道回调域名白名单（design D4 边界）
 - [x] 4.4 upstream 触碰终审：`git status --porcelain` 对照基线，tracked 文件改动为 **0**（实施中曾因全仓 `format:fix` 误格式化 10 个上游 markdown/yaml，已当场 `git checkout` 全量还原并改用仅对本 change 文件的格式检查）；新增仅 `src/providers/wechatpay/`、`src/providers/alipay/`（fork-new）、`docs/wms-skeleton-contract.md`（fork-new）、`openspec/changes/add-supply-chain-provider-onboarding/`（本 change 工件）；`src/providers/kingdee/**`、生成器脚本、`connector-runtime.ts`、migrations 零改动（零新迁移，回调订阅复用既有 `trigger_subscriptions`）
 - [ ] 4.5 挂账回填：银联首版与否（Open Questions 1）、WMS 品牌与接口形态（Open Questions 2）、金蝶 upstream 增补项清单同步 ERP 线（`fd-erp-vertical-templates` connector-onboarding 文档 §1.3/§2.5 消费）——**挂账**：三项均依赖锚点客户确认/ERP 线消费，属跨线跟踪项；WMS 骨架契约已落档 `docs/wms-skeleton-contract.md`（骨架、验收判据、形态分支、前置依赖），金蝶增补评估结论在 design D7、upstream 增补项清单（开票直连/凭证模板自动生成/银企直连）已列，待 ERP 线挂账同步
+
+## 归档豁免
+
+归档豁免：2026-11-25 剩 1.2/4.3/4.5 共 3 项**全是外部前置**，无代码欠账：
+- 1.2 等下一个上游双周合并窗口与维护者确认 D1（新目录=additive 非 modify），不改本仓代码；
+- 4.3 回调链路真机验收需锚点客户的商户资质/API 证书/BYOK（mchid/APIv3 密钥由商户侧提供）；
+- 4.5 三项挂账依赖锚点客户确认与 ERP 线消费，属跨线跟踪。
+
+代码侧全部入库并验证：`src/providers/{alipay,wechatpay}/`（definition/executors/trigger 各含测试），
+2026-11-25 复跑 vitest 4 文件 47/47 通过；两 provider 全 action `operationType=read`（只读边界成立）。
+delta 6 条合入主 spec `provider-onboarding` 后行为固化；外部条件到位后按 4.3 补真机验收即可。
